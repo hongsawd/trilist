@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<style>
+  *{box-sizing:border-box}
+  html,body{margin:0;background:transparent;overflow:hidden;height:100%;
+    font-family:"Microsoft YaHei UI","PingFang SC",sans-serif}
+  .card{position:relative;margin:8px;padding:22px 24px 18px;border-radius:16px;background:#fff;
+    color:#1f2328;border:1px solid #dde3ea;box-shadow:0 18px 50px rgba(24,39,58,.22);-webkit-app-region:drag}
+  .card::before{content:"";position:absolute;left:0;right:0;top:0;height:3px;border-radius:16px 16px 0 0;
+    background:linear-gradient(90deg,#2f6fd0,#8ebbee)}
+  .head{display:flex;align-items:center;gap:14px;margin-bottom:15px}
+  .badge{width:48px;height:48px;border-radius:12px;background:#eaf1fc;color:#2f6fd0;display:flex;
+    align-items:center;justify-content:center}
+  .badge svg{width:27px;height:27px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+  h1{font-size:20px;margin:0 0 4px;color:#1f2328}.sub{color:#5b6470;font-size:12px}
+  .close{position:absolute;right:18px;top:16px;border:0;background:none;color:#68717c;
+    width:30px;height:30px;padding:5px;cursor:pointer;-webkit-app-region:no-drag}
+  .close svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round}
+  .item{display:grid;grid-template-columns:1fr auto;gap:12px;padding:12px 0;
+    border-top:1px solid #e8ebef}
+  .title{font-size:15px;font-weight:600;color:#1f2328}.meta{font-size:12px;color:#68717c;margin-top:5px}
+  .count{font-size:12px;color:#2f6fd0;font-weight:700;white-space:nowrap;margin-top:3px}
+  .foot{display:flex;align-items:center;margin-top:10px}
+  button.ack{border:0;border-radius:8px;background:#2f6fd0;color:#fff;padding:9px 18px;
+    font:inherit;font-size:12px;font-weight:600;cursor:pointer;-webkit-app-region:no-drag}
+  button.ack:hover{background:#245db1}
+  .hotkey{margin-left:auto;font-size:10px;color:#5b6470}
+</style>
+</head>
+<body>
+<main class="card">
+  <button class="close" onclick="window.close()" aria-label="关闭">
+    <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 4l12 12M16 4 4 16"/></svg>
+  </button>
+  <div class="head">
+    <div class="badge" aria-hidden="true">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 7v5l3 2"/><path d="M9 2h6"/></svg>
+    </div>
+    <div><h1>三格 · 即将开始</h1><div class="sub">提前 30 分钟主动提醒</div></div>
+  </div>
+  <section id="items"></section>
+  <div class="foot">
+    <button class="ack" onclick="window.close()">知道了</button>
+    <span class="hotkey" id="hotkey"></span>
+  </div>
+</main>
+<script>
+  function esc(value){
+    return String(value||"").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+  }
+  window.renderNotifications = function(items, hotkey){
+    document.getElementById("hotkey").textContent = "侧栏快捷键 " + hotkey;
+    document.getElementById("items").innerHTML = items.map(item => {
+      const start = new Date(item.startAt);
+      const mins = Math.max(0, Math.round((start-Date.now())/60000));
+      const time = start.toLocaleTimeString("zh-CN", {hour:"2-digit", minute:"2-digit", hour12:false});
+      return '<div class="item"><div><div class="title">'+esc(item.title)+
+        '</div><div class="meta">'+time+' · '+esc(item.where||item.kind)+
+        '</div></div><div class="count">还有 '+mins+' 分钟</div></div>';
+    }).join("");
+  };
+  document.addEventListener("keydown", e => { if (e.key === "Escape") window.close(); });
+</script>
+</body>
+</html>

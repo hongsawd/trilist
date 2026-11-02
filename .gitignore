@@ -1,0 +1,16 @@
+__pycache__/
+*.pyc
+desktop/profile/
+desktop/seed-data.json
+triage.json
+reminder-state.json
+preview*.png
+_dom.html
+_err.txt
+d1.html
+d2.html
+d3.html
+d4.html
+d5.html
+index.v1.0-reconstructed.html
+test_web_interactions.v1.0-reconstructed.py
