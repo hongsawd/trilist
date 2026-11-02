@@ -20,6 +20,7 @@
   header{padding:20px 26px 12px;flex:0 0 auto;}
   .bar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
   h1{font-size:22px;margin:0;letter-spacing:.5px;}
+  .app-version{font-size:10px;color:var(--ink-3);border:1px solid var(--line);border-radius:20px;padding:1px 6px;letter-spacing:.3px;}
   .tabs{display:flex;gap:4px;margin-left:8px;}
   .tab{font:inherit;font-size:13px;padding:5px 14px;border-radius:8px;border:1px solid transparent;
        background:none;cursor:pointer;color:var(--ink-2);transition:all var(--dur);}
@@ -91,6 +92,7 @@
   .chip.okc{background:#eaf6ef;color:var(--done);}
   .chip.dim{background:#f0f2f5;color:var(--ink-3);}
   .when{font-size:13px;font-variant-numeric:tabular-nums;}
+  .when .range{font-size:10px;color:var(--ink-3);}
   .when b{font-weight:600;}
   .where{font-size:12px;color:var(--ink-3);}
   .note-line{font-size:12px;color:var(--ink-3);margin-top:4px;}
@@ -306,6 +308,8 @@
   .block-fields label{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--ink-3);white-space:nowrap;}
   .block-fields input{min-width:0;flex:1;width:auto;font:inherit;font-size:13px;padding:7px 9px;
         border:1px solid var(--line);border-radius:8px;background:#fbfcfd;color:var(--ink);}
+  .block-end-fields{grid-template-columns:1.1fr .8fr;margin-top:-2px;}
+  .end-toggle{margin-left:2px;}
   .entry{display:flex;gap:10px;align-items:stretch;}
   input[type=text]{flex:1;font:inherit;padding:10px 12px;border:1px solid var(--line);
       border-radius:8px;background:#fbfcfd;outline:none;transition:border-color var(--dur),box-shadow var(--dur);}
@@ -358,7 +362,7 @@
 
 <header>
   <div class="bar">
-    <h1>三格</h1>
+    <h1>三格</h1><span class="app-version">v1.1</span>
     <div class="tabs">
       <button class="tab on" data-view="board">看板</button>
       <button class="tab" data-view="cal">日历</button>
@@ -509,6 +513,10 @@
     <label id="timeField" hidden>时间 <input type="time" id="blockTime" title="↑↓/滚轮每次 5 分钟；Shift 调整 1 小时；Alt 调整 1 分钟"></label>
     <label class="where-block" id="whereField" hidden>地点 <input type="text" id="blockWhere" autocomplete="off" title="↑↓ 选择去过的地方；←→ 切换字段"></label>
   </div>
+  <div class="block-fields block-end-fields" id="blockEndFields" hidden>
+    <label>结束日期 <input type="date" id="blockEndDate" title="跨天日程的结束日期"></label>
+    <label>结束时间 <input type="time" id="blockEndTime" title="可选的结束时间"></label>
+  </div>
   <div class="place-history" id="placeHistory" hidden aria-label="去过的地点"></div>
   <div class="entry">
     <input type="text" id="inp" placeholder="先写下来，默认只会放进念头" autocomplete="off">
@@ -523,6 +531,7 @@
     <span class="label">加积木</span>
     <button class="block-btn" type="button" data-add="date" aria-pressed="false">＋日期 <span class="key">Ctrl+;</span></button>
     <button class="block-btn" type="button" data-add="where" aria-pressed="false">＋地点</button>
+    <button class="block-btn end-toggle" id="blockEndToggle" type="button" aria-pressed="false" hidden>▲ 结束</button>
     <label class="block-cat" hidden>类别
       <select id="blockCat">
         <option value="action">要办</option>
@@ -877,6 +886,12 @@ window.onerror = function(m,s,l,c){ document.title = "ERR @"+l+":"+c+" "+m; };
       const where = cardEl.querySelector(".inline-where").value.trim();
       if (date) item.date = date; else delete item.date;
       if (time) item.time = time; else delete item.time;
+      if (kind === "dated") {
+        const endDate = cardEl.querySelector(".inline-end-date").value;
+        const endTime = cardEl.querySelector(".inline-end-time").value;
+        if (endDate) item.endDate = endDate < item.date ? item.date : endDate; else delete item.endDate;
+        if (endTime) item.endTime = endTime; else delete item.endTime;
+      }
       if (where) item.where = where; else delete item.where;
       if (where) recordPlace(where);
       item.cat = cardEl.querySelector(".inline-cat").value;
@@ -892,12 +907,18 @@ window.onerror = function(m,s,l,c){ document.title = "ERR @"+l+":"+c+" "+m; };
     const c = document.createElement("div");
     c.className = "card inline-editor";
     c.dataset.id = item.id;
+    const endFields = kind === "dated" ?
+        '<label>结束日期<span class="inline-control"><input class="inline-end-date" type="date" value="'+esc(item.endDate||"")+'">'+
+          '<button class="inline-clear" type="button" data-clear="end-date" aria-label="清空结束日期">×</button></span></label>'+
+        '<label>结束时间<span class="inline-control"><input class="inline-end-time" type="time" value="'+esc(item.endTime||"")+'">'+
+          '<button class="inline-clear" type="button" data-clear="end-time" aria-label="清空结束时间">×</button></span></label>' : "";
     const details = kind === "ideas" ? "" :
       '<div class="inline-fields">'+
         '<label>日期<span class="inline-control"><input class="inline-date" type="date" value="'+esc(item.date||"")+'">'+
           '<button class="inline-clear" type="button" data-clear="date" aria-label="清空日期">×</button></span></label>'+
         '<label>时间<span class="inline-control"><input class="inline-time" type="time" value="'+esc(item.time||"")+'">'+
           '<button class="inline-clear" type="button" data-clear="time" aria-label="清空时间">×</button></span></label>'+
+        endFields+
         '<label>地点<span class="inline-control"><input class="inline-where" type="text" value="'+esc(item.where||"")+'">'+
           '<button class="inline-clear" type="button" data-clear="where" aria-label="清空地点">×</button></span></label>'+
         '<label>类别<select class="inline-cat">'+
@@ -1003,13 +1024,17 @@ window.onerror = function(m,s,l,c){ document.title = "ERR @"+l+":"+c+" "+m; };
     const box = el("list-dated"); box.innerHTML="";
     el("n-dated").textContent = store.dated.length ? store.dated.length+" 件" : "";
     if (!store.dated.length) { box.innerHTML = '<div class="empty">没有要等的安排。</div>'; return; }
-    const rows = store.dated.map(it => ({...it, n: daysLeft(it.date)})).sort((a,b)=>(a.date+(a.time||"")).localeCompare(b.date+(b.time||"")));
+    const rows = store.dated.map(it => {
+      const n = daysLeft(it.date);
+      const endN = it.endDate ? daysLeft(it.endDate) : n;
+      return {...it, n, endN, groupN: (n < 0 && endN >= 0) ? 0 : n};
+    }).sort((a,b)=>(a.date+(a.time||"")).localeCompare(b.date+(b.time||"")));
     const groups = [
-      {title:"已过",   test:r=>r.n<0},
-      {title:"今天",   test:r=>r.n===0},
-      {title:"3 天内", test:r=>r.n>0&&r.n<=3},
-      {title:"一周内", test:r=>r.n>3&&r.n<=7},
-      {title:"之后",   test:r=>r.n>7}
+      {title:"已过",   test:r=>r.groupN<0},
+      {title:"今天",   test:r=>r.groupN===0},
+      {title:"3 天内", test:r=>r.groupN>0&&r.groupN<=3},
+      {title:"一周内", test:r=>r.groupN>3&&r.groupN<=7},
+      {title:"之后",   test:r=>r.groupN>7}
     ];
     groups.forEach(g => {
       const list = rows.filter(g.test);
@@ -1022,11 +1047,13 @@ window.onerror = function(m,s,l,c){ document.title = "ERR @"+l+":"+c+" "+m; };
           return;
         }
         const cat = CATS[it.cat] || CATS.info;
-        const leftTxt = it.n<0 ? ("过 "+(-it.n)+" 天") : it.n===0 ? "今天" : ("剩 "+it.n+" 天");
-        const leftCls = (it.n<0||it.n===0) ? "danger" : it.n<=3 ? "warn" : "dim";
+        const ongoing = it.n < 0 && it.endN >= 0;
+        const leftTxt = ongoing ? "进行中" : it.n<0 ? ("过 "+(-it.n)+" 天") : it.n===0 ? "今天" : ("剩 "+it.n+" 天");
+        const leftCls = ongoing ? "warn" : (it.n<0||it.n===0) ? "danger" : it.n<=3 ? "warn" : "dim";
         const c = card('<button class="check" aria-label="办完"></button>'+
           '<div class="body">'+
-            '<div class="when"><b>'+shortDate(it.date)+'</b> '+wdOf(it.date)+(it.time? ' · '+it.time : '')+'</div>'+
+            '<div class="when"><b>'+shortDate(it.date)+'</b> '+wdOf(it.date)+(it.time? ' · '+it.time : '')+
+              (it.endDate && it.endDate!==it.date ? '<span class="range"> – '+shortDate(it.endDate)+'</span>' : '')+'</div>'+
             '<div class="text">'+esc(it.text)+'</div>'+
             (it.where? '<div class="where">@ '+esc(it.where)+'</div>' : '')+
             '<div class="meta"><span class="chip '+leftCls+'">'+leftTxt+'</span>'+
@@ -1036,7 +1063,7 @@ window.onerror = function(m,s,l,c){ document.title = "ERR @"+l+":"+c+" "+m; };
               '<button class="act danger" data-del>删除</button></div>'+
           '</div>');
         c.dataset.id = it.id;
-        if (it.n < 0) c.classList.add("past");
+        if (it.groupN < 0) c.classList.add("past");
         c.querySelector(".check").onclick = () => { c.classList.add("done-anim"); setTimeout(()=>complete("dated", it), 140); };
         c.querySelector("[data-edit]").onclick = () => beginInlineEdit("dated", it);
         c.querySelector("[data-del]").onclick = () => deleteItem("dated", it);
@@ -1349,11 +1376,12 @@ window.onerror = function(m,s,l,c){ document.title = "ERR @"+l+":"+c+" "+m; };
   let selDate = iso(new Date());
 
   function eventsOn(dateStr){
-    const a = store.dated.filter(it=>it.date===dateStr).map(it=>({kind:"open", source:"dated", it}))
+    const a = store.dated.filter(it => it.date <= dateStr && dateStr <= (it.endDate || it.date))
+      .map(it=>({kind:"open", source:"dated", it}))
       .concat(store.todo.filter(it=>it.date===dateStr).map(it=>({kind:"open", source:"todo", it})));
     const b = store.done.filter(it=>it.date===dateStr).map(it=>({kind:"done", it}));
-    const rank = e => e.kind === "course" ? 1 : e.kind === "done" ? 2 : 0;
-    return a.concat(coursesOn(dateStr),b).sort((x,y) =>
+    const rank = e => e.kind === "done" ? 2 : 0;
+    return a.concat(b).sort((x,y) =>
       (rank(x)-rank(y)) || (x.it.time||"99:99").localeCompare(y.it.time||"99:99")
     );
   }
@@ -1411,6 +1439,7 @@ window.onerror = function(m,s,l,c){ document.title = "ERR @"+l+":"+c+" "+m; };
         const c = card('<button class="check" aria-label="办完"></button>'+
           '<div class="body">'+
             (it.time? '<div class="when"><b>'+it.time+'</b></div>':'')+
+            (it.endDate && it.endDate!==it.date ? '<div class="when"><span class="range">'+esc(it.date)+' – '+esc(it.endDate)+'</span></div>':'')+
             '<div class="text">'+esc(it.text)+'</div>'+
             (it.where? '<div class="where">@ '+esc(it.where)+'</div>':'')+
             '<div class="meta"><span class="chip '+cat.cls+'">'+cat.label+'</span></div>'+
@@ -1715,6 +1744,16 @@ window.onerror = function(m,s,l,c){ document.title = "ERR @"+l+":"+c+" "+m; };
     }
     const hasFields = !el("dateField").hidden || !el("whereField").hidden;
     el("blockFields").hidden = !hasFields;
+    const hasDate = !el("dateField").hidden;
+    el("blockEndToggle").hidden = !hasDate;
+    if (!hasDate) {
+      el("blockEndFields").hidden = true;
+      el("blockEndToggle").classList.remove("on");
+      el("blockEndToggle").setAttribute("aria-pressed", "false");
+      el("blockEndToggle").textContent = "▲ 结束";
+      el("blockEndDate").value = "";
+      el("blockEndTime").value = "";
+    }
     document.body.classList.toggle("capture-expanded", hasFields);
   }
   function openDateTimePlace(){
@@ -1835,6 +1874,13 @@ window.onerror = function(m,s,l,c){ document.title = "ERR @"+l+":"+c+" "+m; };
     if (p.where) recordPlace(p.where);
     const id = "x"+Date.now();
     const timing = p.date ? {date:iso(p.date), time:p.time||""} : {};
+    if (kind === "dated" && !el("blockEndFields").hidden) {
+      let endDate = el("blockEndDate").value || "";
+      if (endDate && endDate < timing.date) endDate = timing.date;
+      if (!endDate && el("blockEndTime").value) endDate = timing.date;
+      if (endDate) timing.endDate = endDate;
+      if (el("blockEndTime").value) timing.endTime = el("blockEndTime").value;
+    }
     const place = p.where ? {where:p.where} : {};
     if (kind === "dated") {
       store.dated.push({id, text:p.text, ...timing, ...place, note:"", cat:p.cat||"action"});
@@ -1885,6 +1931,16 @@ window.onerror = function(m,s,l,c){ document.title = "ERR @"+l+":"+c+" "+m; };
       }
     }
   };
+  el("blockEndToggle").onclick = () => {
+    const opening = el("blockEndFields").hidden;
+    el("blockEndFields").hidden = !opening;
+    el("blockEndToggle").classList.toggle("on", opening);
+    el("blockEndToggle").setAttribute("aria-pressed", String(opening));
+    el("blockEndToggle").textContent = opening ? "▼ 收起" : "▲ 结束";
+    if (opening && !el("blockEndDate").value) el("blockEndDate").value = el("blockDate").value || iso(startOfToday());
+    if (opening) el("blockEndDate").focus();
+  };
+
   let lastDateWheel = 0;
   el("blockDate").addEventListener("keydown", e => {
     if (e.key === "ArrowUp" || e.key === "ArrowDown") {

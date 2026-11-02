@@ -433,28 +433,9 @@ def main():
                 and "交互宣讲会" in day_text,
                 day_text,
             )
-            cdp.eval("""(()=>{
-              const cell=Array.from(document.querySelectorAll('#calGrid .cell'))
-                .find(x=>x.querySelector('.ev.coursev') && x.querySelector('.ev:not(.coursev)'));
-              if (cell) cell.click();
-            })()""")
             check(
-                "同一天事件优先于默认课程",
-                cdp.eval(
-                    "(()=>{const e=document.querySelector('#calGrid .cell.sel .ev');"
-                    "return e ? !e.classList.contains('coursev') : false})()"
-                )
-                is True,
-            )
-            cdp.eval("""(()=>{
-              const ev=document.querySelector('#calGrid .ev.coursev');
-              if (ev) ev.closest('.cell').click();
-            })()""")
-            course_day_text = cdp.eval("document.querySelector('#dayItems').textContent")
-            check(
-                "课程已接入日历且不额外标注",
-                bool(course_day_text.strip()) and "课程" not in course_day_text,
-                course_day_text,
+                "日历不再显示课程",
+                cdp.eval("document.querySelectorAll('#calGrid .ev.coursev').length") == 0,
             )
             cdp.eval("document.querySelector('.tab[data-view=\"board\"]').click()")
 
