@@ -453,7 +453,7 @@ def main():
               document.querySelectorAll('#courseGrid .course-event')
             ).map(x=>({text:x.querySelector('b').textContent, col:x.style.gridColumn, row:x.style.gridRow}))""")
             check(
-                "高数位于周二和周五第 1-2 节，周四第 3-4 节",
+                "示例课程 C（数学）位于周二和周五第 1-2 节，周四第 3-4 节",
                 any(x["text"] == "示例课程 C（数学）" and x["col"] == "3" and x["row"].startswith("2")
                     for x in course_cells)
                 and any(x["text"] == "示例课程 C（数学）" and x["col"] == "6" and x["row"].startswith("2")

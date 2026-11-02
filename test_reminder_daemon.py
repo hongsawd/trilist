@@ -19,7 +19,7 @@ def check(name, cond, detail=""):
 
 now = dt.datetime(2026, 10, 30, 11, 0)
 items = [
-    {"id": "soon", "title": "项目例会", "startAt": "2026-10-30T11:30:00", "where": "报告厅", "kind": "日程"},
+    {"id": "soon", "title": "项目例会", "startAt": "2026-10-30T11:30:00", "where": "会议室", "kind": "日程"},
     {"id": "later", "title": "午饭", "startAt": "2026-10-30T12:30:00", "where": "", "kind": "日程"},
 ]
 mod.STATE = {"items": items, "notified": {}}

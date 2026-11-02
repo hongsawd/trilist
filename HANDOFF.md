@@ -1,16 +1,16 @@
 # 三格交接文档 · v1.1
 
 日期：2026-11-02
-桌面仓库：`<LOCAL_HOME>\Documents\deepseek-harness\default-workspace\triage`
+桌面仓库：`<本地工作区>/triage`
 Git tag：`v1.0`（原始版重建归档）、`v1.1`（当前版）
 手机源码：`mobile/index.html`（仓库内）/ `<LOCAL_APP>\sange-mobile-preview.html`（工作副本）
 安卓壳：`<LOCAL_APP>\sange-app`
 APK：`<LOCAL_APP>\三格-v1.1-debug.apk`
 PWA：https://YOUR-PROJECT.pages.dev/
 Cloudflare Pages：项目 `sange`，生产分支 `main`
-GitHub：`YOUR-GITHUB/sange`（计划私有仓库，v1.1 首次推送；目前尚未创建/推送，等待 GitHub 认证）
+GitHub：`YOUR-GITHUB/trilist`（私有仓库，v1.1 首次推送；2026-11-02 已创建并认证）
 
-> 推送规则：**宏明确说“上传”时才 `git push`**，平时每次修改都不自动推。推送前先按第 8 条洗数据。
+> 推送规则：**只有明确说“上传”时才 `git push`**，平时每次修改都不自动推。推送前先按第 8 条洗数据。
 
 ## 1. 当前状态
 
@@ -81,7 +81,7 @@ GitHub：`YOUR-GITHUB/sange`（计划私有仓库，v1.1 首次推送；目前�
   ```
 - Git：
   ```bash
-  git -C "<LOCAL_HOME>\Documents\deepseek-harness\default-workspace\triage" log --oneline --decorate
+  git -C "<本地工作区>/triage" log --oneline --decorate
   ```
 
 ### 手机 PWA
@@ -90,7 +90,7 @@ cd <LOCAL_APP>
 cp sange-mobile-preview.html deploy/sange/index.html
 npx --yes wrangler@latest pages deploy deploy/sange --project-name sange --branch main
 ```
-- Cloudflare OAuth 登录账号：`YOUR_EMAIL`。
+- Cloudflare OAuth 登录账号：见本地密码库，不写进仓库。
 - 生产地址：https://YOUR-PROJECT.pages.dev/
 
 ### APK

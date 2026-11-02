@@ -567,19 +567,19 @@ window.onerror = function(m,s,l,c){ document.title = "ERR @"+l+":"+c+" "+m; };
     {no:11,start:"19:00", end:"19:40"}, {no:12,start:"19:40", end:"20:20"}
   ];
   const COURSES = [
-    {id:"c101", day:1, start:3, end:4, startTime:"10:15", endTime:"11:40", name:"示例课程 A", where:"教学楼 L1-511", color:"c-cyan"},
-    {id:"c102", day:1, start:9, end:10, startTime:"16:00", endTime:"17:25", name:"示例课程 B", where:"教学楼 L1-209", color:"c-green"},
-    {id:"c201", day:2, start:1, end:2, startTime:"08:30", endTime:"09:55", name:"示例课程 C（数学）", where:"教学楼 L1-705", color:"c-green"},
+    {id:"c101", day:1, start:3, end:4, startTime:"10:15", endTime:"11:40", name:"示例课程 A", where:"教学楼 A 101", color:"c-cyan"},
+    {id:"c102", day:1, start:9, end:10, startTime:"16:00", endTime:"17:25", name:"示例课程 B", where:"教学楼 A 205", color:"c-green"},
+    {id:"c201", day:2, start:1, end:2, startTime:"08:30", endTime:"09:55", name:"示例课程 C（数学）", where:"教学楼 A 101", color:"c-green"},
     {id:"c202", day:2, start:7, end:8, startTime:"14:15", endTime:"15:40", name:"示例课程 D（体育）", where:"操场", color:"c-pink"},
-    {id:"c203", day:2, start:9, end:10, startTime:"16:00", endTime:"17:25", name:"示例课程 E", where:"教学楼 L1-407", color:"c-yellow"},
-    {id:"c301", day:3, start:3, end:5, startTime:"10:15", endTime:"12:25", name:"示例课程 F", where:"教学楼 L1-507", color:"c-purple"},
-    {id:"c302", day:3, start:7, end:8, startTime:"14:15", endTime:"15:40", name:"示例课程 A", where:"教学楼 L1-511", color:"c-cyan"},
-    {id:"c401", day:4, start:3, end:4, startTime:"10:15", endTime:"11:40", name:"示例课程 C（数学）", where:"教学楼 L1-705", color:"c-green"},
-    {id:"c405", day:5, start:1, end:2, startTime:"08:30", endTime:"09:55", name:"示例课程 C（数学）", where:"教学楼 L1-705", color:"c-green"},
-    {id:"c501", day:5, start:3, end:5, startTime:"10:15", endTime:"12:25", name:"示例课程 G", where:"教学楼 L1-601", color:"c-yellow"},
-    {id:"c502", day:5, start:6, end:6, startTime:"13:30", endTime:"14:10", name:"示例课程 G", where:"教学楼 324", color:"c-yellow"},
-    {id:"c503", day:5, start:7, end:8, startTime:"14:15", endTime:"15:40", name:"示例课程 H", where:"教学楼 L1-703", color:"c-blue"},
-    {id:"c504", day:5, start:9, end:10, startTime:"16:00", endTime:"17:25", name:"示例课程 H", where:"教学楼 323", color:"c-blue"}
+    {id:"c203", day:2, start:9, end:10, startTime:"16:00", endTime:"17:25", name:"示例课程 E", where:"教学楼 B 203", color:"c-yellow"},
+    {id:"c301", day:3, start:3, end:5, startTime:"10:15", endTime:"12:25", name:"示例课程 F", where:"教学楼 B 305", color:"c-purple"},
+    {id:"c302", day:3, start:7, end:8, startTime:"14:15", endTime:"15:40", name:"示例课程 A", where:"教学楼 A 101", color:"c-cyan"},
+    {id:"c401", day:4, start:3, end:4, startTime:"10:15", endTime:"11:40", name:"示例课程 C（数学）", where:"教学楼 A 101", color:"c-green"},
+    {id:"c405", day:5, start:1, end:2, startTime:"08:30", endTime:"09:55", name:"示例课程 C（数学）", where:"教学楼 A 101", color:"c-green"},
+    {id:"c501", day:5, start:3, end:5, startTime:"10:15", endTime:"12:25", name:"示例课程 G", where:"教学楼 C 102", color:"c-yellow"},
+    {id:"c502", day:5, start:6, end:6, startTime:"13:30", endTime:"14:10", name:"示例课程 G", where:"教学楼 C 102", color:"c-yellow"},
+    {id:"c503", day:5, start:7, end:8, startTime:"14:15", endTime:"15:40", name:"示例课程 H", where:"教学楼 C 205", color:"c-blue"},
+    {id:"c504", day:5, start:9, end:10, startTime:"16:00", endTime:"17:25", name:"示例课程 H", where:"教学楼 C 205", color:"c-blue"}
   ];
   const WEEK9_MONDAY = new Date(2026, 9, 26);
 
@@ -591,9 +591,9 @@ window.onerror = function(m,s,l,c){ document.title = "ERR @"+l+":"+c+" "+m; };
       {id:"d3", text:"示例待办 C（带截止日期）", date:"2026-11-01", time:"23:59", cat:"academic", note:"11.1 前交"}
     ],
     dated:[
-      {id:"d1", text:"示例日程 A", date:"2026-10-30", time:"12:00", where:"会议室", cat:"urgent", note:"要去找导师"},
-      {id:"d2", text:"示例日程 B", date:"2026-10-31", time:"08:00", where:"", cat:"action", note:""},
-      {id:"d4", text:"示例日程 C", date:"2026-11-03", time:"18:00", where:"教学楼", cat:"academic", note:"学习路线规划"},
+      {id:"d1", text:"示例日程 A", date:"2026-10-30", time:"12:00", where:"会议室", cat:"urgent", note:"示例备注"},
+      {id:"d2", text:"示例日程 B", date:"2026-10-31", time:"08:00", where:"操场", cat:"action", note:""},
+      {id:"d4", text:"示例日程 C", date:"2026-11-03", time:"18:00", where:"教学楼 A", cat:"academic", note:"示例备注"},
       {id:"d5", text:"示例日程 D", date:"2026-11-08", time:"19:00", where:"报告厅", cat:"info", note:""}
     ],
     ideas:[

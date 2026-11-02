@@ -15,7 +15,7 @@
 
 命令行（给我自己调试和批量灌数据用）：
   python triage.pyw --list
-  python triage.pyw --add "整理书桌 还没挑" --kind idea
+  python triage.pyw --add "整理书桌" --kind idea
 """
 
 import json
@@ -483,9 +483,9 @@ def cli(argv):
         tmp = os.path.join(tempfile.gettempdir(), "triage_ui.json")
         if os.path.exists(tmp):
             os.remove(tmp)
-        add(tmp, "英语作文 @11-01", "dated")
+        add(tmp, "示例日程 @11-01", "dated")
         add(tmp, "回一条该回的消息", "todo")
-        add(tmp, "示例念头：换一把椅子", "ideas")
+        add(tmp, "示例念头", "ideas")
         root = tk.Tk()
         root.withdraw()
         app = App(root, tmp)
@@ -507,9 +507,9 @@ def cli(argv):
         tmp = os.path.join(tempfile.gettempdir(), "triage_selftest.json")
         if os.path.exists(tmp):
             os.remove(tmp)
-        add(tmp, "英语作文 @11-01", "dated")
+        add(tmp, "示例日程 @11-01", "dated")
         add(tmp, "回消息", "todo")
-        add(tmp, "示例念头 还没挑好", "idea")
+        add(tmp, "示例念头", "idea")
         d = load(tmp)
         assert len(d["dated"]) == 1, d
         assert len(d["ideas"]) == 1, d
