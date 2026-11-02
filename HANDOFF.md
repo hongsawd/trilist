@@ -116,8 +116,18 @@ export PATH="$JAVA_HOME/bin:$ANDROID_HOME/platform-tools:$PATH"
 - 迁移：给手机 store 的 todos/events/courses/thoughts 和桌面 store 的 todo/dated/ideas/done 补 `updatedAt`/`deleted`；桌面加读写包装。
 - 验收：两台设备、离线改、删除/恢复、同一条冲突、初次全量。
 
+### 后端已部署（2026-11-02）
+
+- Worker：`sange-sync`，地址 https://YOUR-WORKER.workers.dev
+- D1：`sange-sync`（APAC），表 `items(owner, kind, id, payload, updated_at, deleted)`
+- 源码：`sync-worker/`（`wrangler.toml`、`src/index.js`、`schema.sql`）
+- token：本地 `<LOCAL_APP>/deploy/sync-worker/.sync-token.txt`；已通过 `wrangler secret put SYNC_TOKEN` 上传，**不进仓库**
+- 接口：`POST /sync`，`Authorization: Bearer <token>`，body `{items:[{kind,id,updatedAt,deleted,payload}]}`，返回合并后全量
+- 合并规则：`ON CONFLICT ... WHERE excluded.updated_at > items.updated_at`，即按条 LWW
+- **未验证**：本机 curl 访问 workers.dev 超时（疑似需代理），下次先确认网络再测
+
 待定：
-1. token 放哪（本地文件/首启输入，不进仓库）；
+1. ~~token 放哪~~ → 已定：本地文件 + 首启输入，不进仓库；
 2. 同步范围（只三格数据，不含课表导入原文件）；
 3. 自动同步触发频率。
 
