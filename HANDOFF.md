@@ -46,8 +46,12 @@
   todos:   [{ id, text, meta, tag, tone, done }],
   events:  [{ id, date, time, endDate, endTime, text, place, kind, tone }],
   courses: [{ id, day, start, end, weeks:[5,6...], name, place, teacher, classNo, color }],
-  thoughts:[ "..." ]
+  thoughts:[{ id, text }],
+  deleted: [{ kind, id, updatedAt }],          // 待同步的删除墓碑
+  sync:    { url, token, lastSync }
 }
+```
+- 所有条目都有 `updatedAt`（毫秒时间戳），同步按它做 LWW。
 ```
 - `day` 周一=1…周日=7；`start/end` 1–14 节；`weeks` 是显式周数组。
 - 日历按 `date <= 某天 <= endDate` 显示多天日程。
@@ -98,7 +102,7 @@ export PATH="$JAVA_HOME/bin:$ANDROID_HOME/platform-tools:$PATH"
 
 ## 已知限制
 
-- 无同步；三端数据各自独立。
+- 同步只做了手机端；桌面端还没接，三端数据仍各自独立（手机同步后桌面不会变）。
 - 手机待办只能完成/恢复，日程只能新增；编辑/删除待办、日程未做。
 - 小组件未真机验证；立即刷新依赖插件。
 - 顶部安全区 `max(56px, 16px + env(safe-area-inset-top))`，不同机型可能要微调。
@@ -124,7 +128,17 @@ export PATH="$JAVA_HOME/bin:$ANDROID_HOME/platform-tools:$PATH"
 - token：本地 `<LOCAL_APP>/deploy/sync-worker/.sync-token.txt`；已通过 `wrangler secret put SYNC_TOKEN` 上传，**不进仓库**
 - 接口：`POST /sync`，`Authorization: Bearer <token>`，body `{items:[{kind,id,updatedAt,deleted,payload}]}`，返回合并后全量
 - 合并规则：`ON CONFLICT ... WHERE excluded.updated_at > items.updated_at`，即按条 LWW
-- **未验证**：本机 curl 访问 workers.dev 超时（疑似需代理），下次先确认网络再测
+- **已验证**：health、401、LWW、墓碑（curl 走 Clash `127.0.0.1:7897`，需加 `--ssl-no-revoke`）
+- 注意：访问 workers.dev 需要代理；浏览器走系统代理，终端 curl 要手动设 `https_proxy`
+
+### 手机端已接（v1.1+sync）
+
+- 入口：第二页课表工具条「同步」→ 填服务地址和令牌 → 保存并同步。
+- 每条记录带 `updatedAt`；删除写进 `store.deleted` 墓碑，同步成功后清空。
+- 改动后 4 秒防抖自动推；打开页面自动拉；同步期间若本地又改，放弃本次回写，等下一次。
+- `thoughts` 从字符串数组迁移为 `{id, text, updatedAt}`，`loadStore()` 里自动转换。
+- 令牌存在 `localStorage`，明文；单机个人使用可接受。
+- 已测：模拟接口的推/拉/墓碑/防抖；真实接口只测了 health 和 curl，浏览器带真 token 的往返还没跑。
 
 待定：
 1. ~~token 放哪~~ → 已定：本地文件 + 首启输入，不进仓库；

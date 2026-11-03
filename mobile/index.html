@@ -203,6 +203,7 @@
   .sheet.on{transform:translate(-50%,0);}
   .grip{width:36px;height:4px;border-radius:4px;background:#e2e5eb;margin:0 auto 12px;}
   .sheet-title{font-size:13px;font-weight:700;color:var(--ink2);margin-bottom:10px;}
+  .sync-status{font-size:11px;color:var(--ink3);margin:12px 0 4px;min-height:16px;line-height:1.5;word-break:break-all;}
   .sheet-input{width:100%;border:0;border-bottom:1px solid var(--line);border-radius:0;padding:6px 2px 12px;
     font:inherit;font-size:16px;outline:none;background:transparent;color:var(--ink);}
   .sheet-row{display:flex;gap:6px;align-items:center;margin-top:14px;flex-wrap:wrap;}
@@ -289,6 +290,7 @@
         <button id="thisWeek" type="button">回到本周</button>
         <button id="importBtn" type="button">导入 HTML</button>
         <button id="addCourseBtn" type="button">＋ 添加课程</button>
+        <button id="syncBtn" type="button">同步</button>
       </div>
       <input type="file" id="importFile" accept=".html,.htm,text/html" hidden>
       <div class="tt-head" id="ttHead"></div>
@@ -376,6 +378,19 @@
   <div class="thought-list" id="dayList"></div>
 </div>
 
+<div class="scrim" id="syncScrim"></div>
+<div class="sheet" id="syncSheet" role="dialog" aria-label="同步设置">
+  <div class="grip"></div>
+  <div class="sheet-title">双端同步</div>
+  <label class="field">服务地址<input id="syncUrl" placeholder="https://YOUR-WORKER.workers.dev" autocomplete="off" inputmode="url"></label>
+  <label class="field" style="margin-top:10px;">令牌<input id="syncToken" type="password" placeholder="粘贴令牌" autocomplete="off"></label>
+  <div class="sync-status" id="syncStatus">未配置</div>
+  <div class="course-actions">
+    <button class="danger-btn" id="syncNowBtn" type="button">立即同步</button>
+    <button class="submit" id="syncSave" type="button">保存</button>
+  </div>
+</div>
+
 <script>
 (function(){
   const $ = s => document.querySelector(s);
@@ -459,11 +474,25 @@
     ];
   }
 
+  function now(){ return Date.now(); }
+
+  function normalizeStore(data){
+    const stamp = x => { if (!x.id) x.id = uid(); if (!x.updatedAt) x.updatedAt = now(); return x; };
+    data.todos = (data.todos || []).map(stamp);
+    data.events = (data.events || []).map(stamp);
+    data.courses = (data.courses || []).map(stamp);
+    data.thoughts = (data.thoughts || []).map(t =>
+      typeof t === "string" ? { id:uid(), text:t, updatedAt:now() } : stamp(t));
+    if (!Array.isArray(data.deleted)) data.deleted = [];
+    if (!data.sync || typeof data.sync !== "object") data.sync = { url:"", token:"", lastSync:0 };
+    return data;
+  }
+
   function seedStore(){
     const d0 = TODAY, d1 = TOMORROW;
     const d3 = fmtDate(addDays(NOW,3));
     const d6 = fmtDate(addDays(NOW,6));
-    return {
+    return normalizeStore({
       todos: [
         { id:"t1", text:"示例待办：写三行字", meta:"10 分钟", tag:"要办", tone:"blue", done:false },
         { id:"t2", text:"示例待办：回一条消息", meta:"今天", tag:"要办", tone:"amber", done:false },
@@ -483,7 +512,7 @@
         "示例念头：整理旧照片",
         "示例念头：试试早起"
       ]
-    };
+    });
   }
 
   function loadStore(){
@@ -492,11 +521,10 @@
       if (raw){
         const data = JSON.parse(raw);
         if (data && Array.isArray(data.todos) && Array.isArray(data.events) && Array.isArray(data.thoughts)){
-          if (!Array.isArray(data.courses)){
-            data.courses = seedCourses();
-            try { localStorage.setItem(STORE_KEY, JSON.stringify(data)); } catch(e){}
-          }
-          return data;
+          if (!Array.isArray(data.courses)) data.courses = seedCourses();
+          const normalized = normalizeStore(data);
+          try { localStorage.setItem(STORE_KEY, JSON.stringify(normalized)); } catch(e){}
+          return normalized;
         }
       }
     } catch(e){}
@@ -505,9 +533,18 @@
     return seed;
   }
   const store = loadStore();
+  let storeRev = 0;
+  let applyingSync = false;
   function save(){
+    storeRev++;
     try { localStorage.setItem(STORE_KEY, JSON.stringify(store)); } catch(e){}
     saveWidget();
+    scheduleSync();
+  }
+
+  function tombstone(kind, id){
+    store.deleted = (store.deleted || []).filter(d => !(d.kind === kind && d.id === id));
+    store.deleted.push({ kind, id, updatedAt: now() });
   }
 
   function widgetSnapshot(){
@@ -529,6 +566,111 @@
         if (plugins.WidgetRefresh) plugins.WidgetRefresh.refresh().catch(() => {});
       })
       .catch(() => {});
+  }
+
+  // ---- 同步 ----
+  const syncConfigured = () => !!(store.sync && store.sync.url && store.sync.token);
+  let syncing = false, syncTimer = null;
+
+  function setSyncStatus(msg){
+    const el = $("#syncStatus");
+    if (el) el.textContent = msg;
+  }
+
+  function openSyncSheet(){
+    closeSheet(); closeThoughtList(); closeAllSheets(); closeCourseSheet();
+    $("#syncUrl").value = (store.sync && store.sync.url) || "";
+    $("#syncToken").value = (store.sync && store.sync.token) || "";
+    setSyncStatus(store.sync && store.sync.lastSync
+      ? "上次同步：" + new Date(store.sync.lastSync).toLocaleString("zh-CN")
+      : "未配置");
+    $("#syncScrim").classList.add("on");
+    $("#syncSheet").classList.add("on");
+  }
+  function closeSyncSheet(){
+    $("#syncScrim").classList.remove("on");
+    $("#syncSheet").classList.remove("on");
+  }
+
+  function scheduleSync(){
+    if (applyingSync || !syncConfigured()) return;
+    clearTimeout(syncTimer);
+    syncTimer = setTimeout(() => syncNow(true), 4000);
+  }
+
+  function collectItems(){
+    const out = [];
+    const put = (kind, arr) => arr.forEach(x => out.push({
+      kind, id:x.id, updatedAt:x.updatedAt || 0, deleted:false, payload:x
+    }));
+    put("todo", store.todos);
+    put("event", store.events);
+    put("course", store.courses);
+    put("thought", store.thoughts);
+    (store.deleted || []).forEach(d => out.push({
+      kind:d.kind, id:d.id, updatedAt:d.updatedAt, deleted:true, payload:null
+    }));
+    return out;
+  }
+
+  function applySnapshot(items){
+    const buckets = { todo:[], event:[], course:[], thought:[] };
+    (items || []).forEach(it => {
+      if (!it || it.deleted || !buckets[it.kind]) return;
+      buckets[it.kind].push({ ...(it.payload || {}), id:it.id, updatedAt:it.updatedAt });
+    });
+    store.todos = buckets.todo;
+    store.events = buckets.event;
+    store.courses = buckets.course;
+    store.thoughts = buckets.thought;
+    store.deleted = [];
+    currentThought = null;
+  }
+
+  function renderAll(){
+    renderCalendar();
+    renderTodos();
+    renderEvents();
+    renderTimetable();
+    if (page === 2) pickThought();
+    saveWidget();
+  }
+
+  async function syncNow(silent){
+    if (!syncConfigured()){
+      if (!silent) openSyncSheet();
+      return;
+    }
+    if (syncing) return;
+    syncing = true;
+    setSyncStatus("同步中…");
+    const rev = storeRev;
+    try {
+      const url = (store.sync.url || "").replace(/\/+$/, "") + "/sync";
+      const res = await fetch(url, {
+        method:"POST",
+        headers:{ "content-type":"application/json", "authorization":"Bearer " + store.sync.token },
+        body: JSON.stringify({ items: collectItems() })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || ("HTTP " + res.status));
+      if (rev === storeRev){
+        applyingSync = true;
+        applySnapshot(data.items || []);
+        store.sync.lastSync = now();
+        save();
+        applyingSync = false;
+        renderAll();
+      }
+      setSyncStatus("已同步 · " + new Date().toLocaleTimeString("zh-CN", { hour:"2-digit", minute:"2-digit" }));
+      if (!silent) showToast("同步完成");
+    } catch(e){
+      applyingSync = false;
+      setSyncStatus("同步失败：" + (e.message || e));
+      if (!silent) showToast("同步失败，检查网络或令牌");
+    } finally {
+      syncing = false;
+    }
   }
 
   function esc(s){ return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
@@ -589,6 +731,7 @@
         const t = store.todos.find(x => x.id === btn.dataset.done);
         if (!t) return;
         t.done = !t.done;
+        t.updatedAt = now();
         save();
         renderTodos();
       };
@@ -754,7 +897,7 @@
     do { next = store.thoughts[Math.floor(Math.random() * store.thoughts.length)]; }
     while (store.thoughts.length > 1 && next === currentThought);
     currentThought = next;
-    $("#thoughtText").textContent = next;
+    $("#thoughtText").textContent = next.text;
     $("#thoughtCount").textContent = store.thoughts.length;
     const card = $("#thoughtCard");
     card.classList.remove("pop");
@@ -763,8 +906,11 @@
   }
 
   function dropThought(){
-    const i = store.thoughts.indexOf(currentThought);
-    if (i >= 0) store.thoughts.splice(i, 1);
+    const i = store.thoughts.findIndex(t => currentThought && t.id === currentThought.id);
+    if (i >= 0){
+      tombstone("thought", store.thoughts[i].id);
+      store.thoughts.splice(i, 1);
+    }
     currentThought = null;
     save();
     pickThought();
@@ -774,7 +920,7 @@
     $("#allCount").textContent = store.thoughts.length + " 张";
     $("#thoughtList").innerHTML = store.thoughts.length ? store.thoughts.map((t,i) => `
       <div class="thought-row">
-        <button class="thought-pick" data-pick="${i}">${esc(t)}</button>
+        <button class="thought-pick" data-pick="${i}">${esc(t.text)}</button>
         <div class="thought-row-actions">
           <button class="mini" data-to="${i}">转待办</button>
           <button class="mini danger" data-drop="${i}">搁下</button>
@@ -784,17 +930,20 @@
     $("#thoughtList").querySelectorAll("[data-pick]").forEach(b => {
       b.onclick = () => {
         currentThought = store.thoughts[+b.dataset.pick];
-        $("#thoughtText").textContent = currentThought;
+        $("#thoughtText").textContent = currentThought ? currentThought.text : "";
         closeThoughtList();
       };
     });
     $("#thoughtList").querySelectorAll("[data-to]").forEach(b => {
       b.onclick = () => {
-        const text = store.thoughts[+b.dataset.to];
-        store.todos.unshift({ id:uid(), text, meta:"今天", tag:"要办", tone:"amber", done:false });
+        const idx = +b.dataset.to;
+        const thought = store.thoughts[idx];
+        if (!thought) return;
+        store.todos.unshift({ id:uid(), text:thought.text, meta:"今天", tag:"要办", tone:"amber", done:false, updatedAt:now() });
         save();
         renderTodos();
-        store.thoughts.splice(+b.dataset.to, 1);
+        tombstone("thought", thought.id);
+        store.thoughts.splice(idx, 1);
         save();
         currentThought = null;
         pickThought();
@@ -804,7 +953,10 @@
     });
     $("#thoughtList").querySelectorAll("[data-drop]").forEach(b => {
       b.onclick = () => {
-        store.thoughts.splice(+b.dataset.drop, 1);
+        const idx = +b.dataset.drop;
+        const thought = store.thoughts[idx];
+        if (thought) tombstone("thought", thought.id);
+        store.thoughts.splice(idx, 1);
         save();
         currentThought = null;
         pickThought();
@@ -889,9 +1041,9 @@
     const isEdit = !!editingCourseId;
     if (isEdit){
       const c = store.courses.find(x => x.id === editingCourseId);
-      if (c) Object.assign(c, data, { color: c.color || colorFor(name) });
+      if (c) Object.assign(c, data, { color: c.color || colorFor(name), updatedAt: now() });
     } else {
-      store.courses.push({ id:uid(), ...data, classNo:"", color:colorFor(name) });
+      store.courses.push({ id:uid(), ...data, classNo:"", color:colorFor(name), updatedAt:now() });
     }
     save();
     renderTimetable();
@@ -904,6 +1056,7 @@
 
   function deleteCourse(){
     if (!editingCourseId) return;
+    tombstone("course", editingCourseId);
     store.courses = store.courses.filter(c => c.id !== editingCourseId);
     save();
     renderTimetable();
@@ -944,7 +1097,7 @@
       const key = [name, day, start, end, weeks.join(","), place, teacher].join("|");
       if (seen.has(key)) return;
       seen.add(key);
-      out.push({ id:uid(), name, classNo, teacher, day:+day, start:+start, end:+end, weeks, place, color:colorFor(name) });
+      out.push({ id:uid(), name, classNo, teacher, day:+day, start:+start, end:+end, weeks, place, color:colorFor(name), updatedAt:now() });
     });
     return out;
   }
@@ -953,6 +1106,7 @@
     const parsed = parseTimetableHtml(text);
     if (!parsed.length){ showToast("没认出课表，换一个文件试试"); return; }
     if (store.courses.length && !confirm("导入会覆盖当前课表，继续？")) return;
+    store.courses.forEach(c => tombstone("course", c.id));
     store.courses = parsed;
     save();
     weekOffset = 0;
@@ -979,6 +1133,7 @@
         const t = store.todos.find(x => x.id === btn.dataset.allDone);
         if (!t) return;
         t.done = !t.done;
+        t.updatedAt = now();
         save();
         renderTodos();
         renderAllTodos();
@@ -1116,6 +1271,17 @@
   $("#courseSave").onclick = saveCourse;
   $("#courseDelete").onclick = deleteCourse;
   $("#courseScrim").onclick = closeCourseSheet;
+  $("#syncBtn").onclick = openSyncSheet;
+  $("#syncScrim").onclick = closeSyncSheet;
+  $("#syncNowBtn").onclick = () => syncNow(false);
+  $("#syncSave").onclick = () => {
+    if (!store.sync) store.sync = { url:"", token:"", lastSync:0 };
+    store.sync.url = $("#syncUrl").value.trim();
+    store.sync.token = $("#syncToken").value.trim();
+    save();
+    closeSyncSheet();
+    if (syncConfigured()) syncNow(false);
+  };
   $("#endToggle").onclick = () => {
     const opening = $("#eventEndFields").classList.contains("hidden");
     $("#eventEndFields").classList.toggle("hidden", !opening);
@@ -1130,7 +1296,7 @@
       if (!currentThought) return;
       const act = btn.dataset.act;
       if (act === "to"){
-        store.todos.unshift({ id:uid(), text:currentThought, meta:"今天", tag:"要办", tone:"amber", done:false });
+        store.todos.unshift({ id:uid(), text:currentThought.text, meta:"今天", tag:"要办", tone:"amber", done:false, updatedAt:now() });
         save();
         renderTodos();
         showToast("已放进待办");
@@ -1162,12 +1328,12 @@
     const text = $("#sheetInput").value.trim();
     if (!text) { $("#sheetInput").focus(); return; }
     if (state.type === "thought"){
-      store.thoughts.unshift(text);
+      store.thoughts.unshift({ id:uid(), text, updatedAt:now() });
       save();
       if (page === 2) pickThought();
       showToast("已放进念头");
     } else if (state.type === "todo"){
-      store.todos.unshift({ id:uid(), text, meta:"今天", tag:"要办", tone:"amber", done:false });
+      store.todos.unshift({ id:uid(), text, meta:"今天", tag:"要办", tone:"amber", done:false, updatedAt:now() });
       save();
       renderTodos();
       showToast("已放进待办");
@@ -1177,7 +1343,7 @@
       let endDate = $("#eventEndDate").value || "";
       const endTime = $("#eventEndTime").value || "";
       if (endDate && endDate < date) endDate = date;
-      store.events.push({ id:uid(), date, time, endDate, endTime, text, place:"", kind:"日程", tone:"pink" });
+      store.events.push({ id:uid(), date, time, endDate, endTime, text, place:"", kind:"日程", tone:"pink", updatedAt:now() });
       save();
       renderEvents();
       renderCalendar();
@@ -1222,6 +1388,7 @@
   renderTimetable();
   setPage(1);
   saveWidget();
+  if (syncConfigured()) setTimeout(() => syncNow(true), 800);
 })();
 </script>
 </body>
