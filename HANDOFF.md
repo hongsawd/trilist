@@ -1,7 +1,7 @@
 # 三格 · 交接（v1.1）
 
 ## 三行摘要
-- 桌面 Electron + 手机 PWA/APK，同一套「待办 / 日程 / 念头 / 课表」；桌面 v1.1，手机 v1.4。
+- 桌面 Electron + 手机 PWA/APK，同一套「待办 / 日程 / 念头 / 课表」；桌面 v1.2，手机 v1.5。
 - 数据目前各自在本机；桌面、PWA、APK 三套数据互不相通。
 - 下一步做双端同步：Cloudflare Worker + D1，最小 snapshot + 单用户 token + 按条目 LWW。GitHub 只在宏明确说“上传”时才推。
 
@@ -12,9 +12,9 @@
 | 桌面仓库 | `~/Documents/deepseek-harness/default-workspace/triage` |
 | Git tag | `v1.0`（原版重建归档）、`v1.1`（桌面当前）、`v1.2`（手机同步） |
 | GitHub | `YOUR-GITHUB/trilist`（private，已建；本地 main 领先 origin/main 1 个 docs commit，未推） |
-| 手机源码 | `mobile/index.html`（仓库内，v1.4）/ `<LOCAL_APP>\sange-mobile-preview.html`（工作副本） |
+| 手机源码 | `mobile/index.html`（仓库内，v1.5）/ `<LOCAL_APP>\sange-mobile-preview.html`（工作副本） |
 | 安卓壳 | `<LOCAL_APP>\sange-app`（versionCode 3 / 1.2） |
-| APK | `<LOCAL_APP>\三格-v1.4-debug.apk` |
+| APK | `<LOCAL_APP>\三格-v1.5-debug.apk` |
 | PWA | https://YOUR-PROJECT.pages.dev/ |
 | Cloudflare Pages | 项目 `sange`，生产分支 `main` |
 
@@ -102,7 +102,8 @@ export PATH="$JAVA_HOME/bin:$ANDROID_HOME/platform-tools:$PATH"
 
 ## 已知限制
 
-- 同步只做了手机端；桌面端还没接，三端数据仍各自独立（手机同步后桌面不会变）。
+- 桌面已接同步：普通同步双向 LWW；首次同步默认「课程跟云端，其余跟电脑」。
+- 桌面课表已进 store，但还没有 HTML 导入；真课表靠首次同步从云端拉。
 - 手机待办只能完成/恢复，日程只能新增；编辑/删除待办、日程未做。
 - 小组件未真机验证；立即刷新依赖插件。
 - 顶部安全区 `max(56px, 16px + env(safe-area-inset-top))`，不同机型可能要微调。

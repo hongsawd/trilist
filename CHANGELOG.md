@@ -1,5 +1,12 @@
 # 版本
 
+## v1.5 · 2026-11-03
+- 手机：课表去掉左右箭头，改成在课格上左右滑动切周；删掉课表上方失效的「同步」按钮。
+- 桌面 v1.2：接入双端同步。普通同步按条 LWW；首次同步「课程跟云端，其余跟电脑」。
+- 桌面课表从写死的 `COURSES` 搬进 store，带周次、可同步；日历/课表按周过滤。
+- 桌面念头浮签改为常驻，不再 12 秒自动收起。
+- 手机 v1.5（versionCode 6）；PWA 已发布。
+
 ## v1.4 · 2026-11-03
 - 同步接口从 `workers.dev` 搬到 PWA 同域名的 Pages Functions：`https://YOUR-PROJECT.pages.dev/api/sync`。
 - 原因：手机不挂梯子打不开 workers.dev，但能打开 pages.dev。

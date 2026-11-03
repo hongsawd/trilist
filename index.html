@@ -356,13 +356,27 @@
     .block-fields .where-block{grid-column:1/-1;}
     body.capture-expanded .undo-toast{bottom:214px;}
   }
+  .sync-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:#c7ccd4;margin-left:6px;vertical-align:1px;}
+  .sync-dot.ok{background:#39a15a;} .sync-dot.err{background:#d0493c;}
+  .sync-modal{position:fixed;inset:0;background:rgba(18,24,38,.28);display:flex;align-items:center;justify-content:center;z-index:80;}
+  .sync-modal[hidden]{display:none;}
+  .sync-panel{width:min(430px,calc(100vw - 40px));background:#fff;border-radius:16px;padding:18px 20px 16px;box-shadow:0 20px 60px rgba(20,30,55,.25);}
+  .sync-panel h2{font-size:15px;margin:0 0 12px;}
+  .sync-panel label{display:block;font-size:12px;color:var(--ink-2);}
+  .sync-panel input{width:100%;margin-top:5px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font:inherit;font-size:13px;}
+  .sync-status{font-size:12px;color:var(--ink-2);margin:10px 0;min-height:18px;}
+  .sync-status.err{color:#c0392b;} .sync-status.ok{color:#2f8f4e;}
+  .sync-actions{display:flex;gap:8px;flex-wrap:wrap;}
+  .sync-actions button{font:inherit;font-size:12px;padding:7px 12px;border-radius:8px;border:1px solid var(--line);background:#fff;cursor:pointer;}
+  .sync-actions button.primary{background:var(--ink);color:#fff;border-color:var(--ink);}
+  .sync-tip{font-size:11px;color:var(--ink-2);line-height:1.6;margin:10px 0 0;}
 </style>
 </head>
 <body>
 
 <header>
   <div class="bar">
-    <h1>三格</h1><span class="app-version">v1.1</span>
+    <h1>三格</h1><span class="app-version">v1.2</span>
     <div class="tabs">
       <button class="tab on" data-view="board">看板</button>
       <button class="tab" data-view="cal">日历</button>
@@ -373,6 +387,7 @@
       <span class="keys">X ← · C →</span>
     </div>
     <div class="top-tools">
+      <button id="syncBtn" title="双端同步">同步<i class="sync-dot" id="syncDot"></i></button>
       <button id="exportBtn" title="导出当前全部数据为 JSON 备份">导出备份</button>
       <button id="importBtn" title="从 JSON 备份恢复">导入</button>
       <input type="file" id="importFile" accept=".json,application/json" hidden>
@@ -544,6 +559,20 @@
   <div class="note" id="note">默认只进念头；Ctrl+; 展开日期时间地点，↑↓调数值，地点框↑↓选历史，←→切字段。</div>
 </footer>
 
+<div class="sync-modal" id="syncModal" hidden>
+  <div class="sync-panel" role="dialog" aria-label="双端同步">
+    <h2>双端同步</h2>
+    <label>令牌<input id="syncToken" type="password" placeholder="粘贴令牌" autocomplete="off"></label>
+    <div class="sync-status" id="syncStatus">还没有同步过</div>
+    <div class="sync-actions">
+      <button id="syncRun" class="primary" type="button">立即同步</button>
+      <button id="syncFirst" type="button">首次同步（课程跟云端，其余跟电脑）</button>
+      <button id="syncClose" type="button">关闭</button>
+    </div>
+    <p class="sync-tip">普通同步按修改时间合并；首次同步只在第一次用。令牌和手机上填的是同一个。</p>
+  </div>
+</div>
+
 <script>
 window.onerror = function(m,s,l,c){ document.title = "ERR @"+l+":"+c+" "+m; };
 (function(){
@@ -606,14 +635,34 @@ window.onerror = function(m,s,l,c){ document.title = "ERR @"+l+":"+c+" "+m; };
     done:[]
   };
 
-  const freshStore = () => JSON.parse(JSON.stringify(DEFAULT));
+  const freshStore = () => normalizeStore(JSON.parse(JSON.stringify(DEFAULT)));
   const looksLikeStore = s => !!s && typeof s === "object"
     && Array.isArray(s.todo) && Array.isArray(s.dated) && Array.isArray(s.ideas);
+
+  function legacyCourse(c){
+    return {
+      id:c.id, day: c.day === 0 ? 7 : c.day, start:c.start, end:c.end,
+      weeks: Array.from({length:18},(_,i)=>i+1),
+      name:c.name, place:c.where, teacher:"", classNo:"",
+      color: String(c.color||"").replace(/^c-/,"") || "green",
+      updatedAt: Date.now()
+    };
+  }
+  function stamp(list){ (list||[]).forEach(x => { if (!x.updatedAt) x.updatedAt = Date.now(); }); return list; }
+
   function normalizeStore(s){
     if (!looksLikeStore(s)) return freshStore();
-    return {todo:s.todo, dated:s.dated, ideas:s.ideas, done:Array.isArray(s.done)?s.done:[],
-            places:Array.isArray(s.places)?s.places:[], mig3:!!s.mig3, mig4:!!s.mig4,
-            mig5:!!s.mig5, schema:5};
+    const out = {
+      todo:s.todo, dated:s.dated, ideas:s.ideas,
+      done:Array.isArray(s.done)?s.done:[],
+      courses:Array.isArray(s.courses)?s.courses:COURSES.map(legacyCourse),
+      places:Array.isArray(s.places)?s.places:[],
+      mig3:!!s.mig3, mig4:!!s.mig4, mig5:!!s.mig5, schema:5,
+      deleted:Array.isArray(s.deleted)?s.deleted:[],
+      sync:(s.sync && typeof s.sync === "object") ? s.sync : {token:"", lastSync:0}
+    };
+    ["todo","dated","ideas","done","courses"].forEach(k => stamp(out[k]));
+    return out;
   }
 
   const ACTION_WORDS = /写|交稿|提交|完成|准备|复习|整理|积|做|改|补|练/;
@@ -672,6 +721,7 @@ window.onerror = function(m,s,l,c){ document.title = "ERR @"+l+":"+c+" "+m; };
   }
 
   let store;
+  let syncing = false, syncTimer = null, applyingSync = false;
   try { store = normalizeStore(JSON.parse(localStorage.getItem(KEY))); }
   catch(e){ store = freshStore(); }
   const migrated = migrateStore(store);
@@ -679,9 +729,8 @@ window.onerror = function(m,s,l,c){ document.title = "ERR @"+l+":"+c+" "+m; };
   const save = () => {
     try {
       localStorage.setItem(KEY, JSON.stringify(store));
-      scheduleReminderSync();
-      return true;
     } catch(e) {
+      console.error("save failed", e);
       const n = document.getElementById("note");
       if (n) {
         n.textContent = "保存失败：浏览器没有写入空间。请立刻导出备份。";
@@ -689,6 +738,14 @@ window.onerror = function(m,s,l,c){ document.title = "ERR @"+l+":"+c+" "+m; };
       }
       return false;
     }
+    const n = document.getElementById("note");
+    if (n && n.classList.contains("err") && /保存失败/.test(n.textContent)) {
+      n.textContent = "";
+      n.className = "note";
+    }
+    scheduleReminderSync();
+    scheduleSync();
+    return true;
   };
   if (migrated) save();
 
@@ -779,14 +836,25 @@ window.onerror = function(m,s,l,c){ document.title = "ERR @"+l+":"+c+" "+m; };
     store.places = store.places.slice(0,30);
   }
 
+  function touch(it){ if (it) it.updatedAt = Date.now(); return it; }
+  function tombstone(kind, id){
+    store.deleted = (store.deleted || []).filter(d => !(d.kind === kind && d.id === id));
+    store.deleted.push({ kind, id, updatedAt: Date.now() });
+  }
+  function clearTombstone(kind, id){
+    store.deleted = (store.deleted || []).filter(d => !(d.kind === kind && d.id === id));
+  }
+
   // ---------- 完成：不删，进 done ----------
   function complete(kind, item){
     const i = store[kind].findIndex(x=>x.id===item.id);
     if (i < 0) return;
     const it = store[kind].splice(i,1)[0];
+    if (kind === "dated") tombstone("event", it.id);
+    if (kind === "ideas") tombstone("thought", it.id);
     const done = { id: it.id, text: it.text, from: kind, cat: it.cat||"action",
                    date: it.date||"", time: it.time||"", where: it.where||"",
-                   note: it.note||"", doneAt: nowStr() };
+                   note: it.note||"", doneAt: nowStr(), updatedAt: Date.now() };
     store.done.unshift(done);
     save(); render();
     showUndo("已完成："+it.text, () => restore(done.id));
@@ -796,11 +864,14 @@ window.onerror = function(m,s,l,c){ document.title = "ERR @"+l+":"+c+" "+m; };
     if (i < 0) return;
     const it = store.done.splice(i,1)[0];
     const target = (it.from==="dated" || it.from==="todo" || it.from==="ideas") ? it.from : "todo";
-    const back = { id: it.id, text: it.text, cat: it.cat };
+    const back = { id: it.id, text: it.text, cat: it.cat, updatedAt: Date.now() };
     if (it.date) { back.date = it.date; back.time = it.time; }
     if (it.where) back.where = it.where;
     if (it.note) back.note = it.note;
     store[target].push(back);
+    if (target !== "todo") tombstone("todo", it.id);
+    if (target === "ideas") clearTombstone("thought", it.id);
+    if (target === "dated") clearTombstone("event", it.id);
     save(); render();
   }
 
@@ -809,10 +880,14 @@ window.onerror = function(m,s,l,c){ document.title = "ERR @"+l+":"+c+" "+m; };
     const index = list.findIndex(x => x.id === item.id);
     if (index < 0) return;
     const [removed] = list.splice(index,1);
+    const sk = kind === "dated" ? "event" : kind === "ideas" ? "thought" : "todo";
+    tombstone(sk, removed.id);
     save(); render();
     showUndo("已删除："+removed.text, () => {
       if (!list.some(x => x.id === removed.id)) {
+        removed.updatedAt = Date.now();
         list.splice(Math.min(index,list.length),0,removed);
+        clearTombstone(sk, removed.id);
         save(); render();
       }
     });
@@ -822,9 +897,12 @@ window.onerror = function(m,s,l,c){ document.title = "ERR @"+l+":"+c+" "+m; };
     const index = store.done.findIndex(x => x.id === id);
     if (index < 0) return;
     const [removed] = store.done.splice(index,1);
+    tombstone("todo", removed.id);
     save(); render();
     showUndo("已删除完成记录："+removed.text, () => {
+      removed.updatedAt = Date.now();
       store.done.splice(Math.min(index,store.done.length),0,removed);
+      clearTombstone("todo", removed.id);
       save(); render();
     });
   }
@@ -899,6 +977,7 @@ window.onerror = function(m,s,l,c){ document.title = "ERR @"+l+":"+c+" "+m; };
       if (memo) item.note = memo; else delete item.note;
     }
     inlineEdit = null;
+    item.updatedAt = Date.now();
     save(); render();
     note.textContent = "已保存修改。";
     note.className = "note";
@@ -1104,12 +1183,14 @@ window.onerror = function(m,s,l,c){ document.title = "ERR @"+l+":"+c+" "+m; };
   }
   function moveIdeaToTodo(item){
     store.ideas = store.ideas.filter(x => x.id !== item.id);
-    store.todo.push({id:"t"+Date.now(), text:item.text, cat:"action"});
+    tombstone("thought", item.id);
+    store.todo.push({id:"t"+Date.now(), text:item.text, cat:"action", updatedAt:Date.now()});
     save(); render();
   }
   function dropIdea(item){
     store.ideas = store.ideas.filter(x => x.id !== item.id);
-    const dropped = {id:item.id, text:item.text, from:"ideas", cat:"", doneAt:nowStr()+" 搁下"};
+    tombstone("thought", item.id);
+    const dropped = {id:item.id, text:item.text, from:"ideas", cat:"", doneAt:nowStr()+" 搁下", updatedAt:Date.now()};
     store.done.unshift(dropped);
     save(); render();
     showUndo("已搁下："+item.text, () => restore(dropped.id));
@@ -1153,7 +1234,6 @@ window.onerror = function(m,s,l,c){ document.title = "ERR @"+l+":"+c+" "+m; };
     stage.classList.add("show");
     if (!choice.fresh) stage.classList.add("instant");
     clearTimeout(ideaSpotTimer);
-    ideaSpotTimer = setTimeout(() => dismissDailyIdea(true), 12000);
   }
 
   function renderIdeas(){
@@ -1195,16 +1275,7 @@ window.onerror = function(m,s,l,c){ document.title = "ERR @"+l+":"+c+" "+m; };
 
   el("ideaSpotClose").onclick = () => dismissDailyIdea(true);
   el("ideaSpotlight").addEventListener("mouseenter", () => clearTimeout(ideaSpotTimer));
-  el("ideaSpotlight").addEventListener("mouseleave", () => {
-    clearTimeout(ideaSpotTimer);
-    ideaSpotTimer = setTimeout(() => dismissDailyIdea(true), 3000);
-  });
   el("ideaSpotlight").addEventListener("focusin", () => clearTimeout(ideaSpotTimer));
-  el("ideaSpotlight").addEventListener("focusout", e => {
-    if (el("ideaSpotlight").contains(e.relatedTarget)) return;
-    clearTimeout(ideaSpotTimer);
-    ideaSpotTimer = setTimeout(() => dismissDailyIdea(true), 3000);
-  });
   el("ideaSpotlight").addEventListener("click", e => {
     const action = e.target.closest("[data-spot]");
     if (!action || !surfacedIdeaId) return;
@@ -1250,12 +1321,27 @@ window.onerror = function(m,s,l,c){ document.title = "ERR @"+l+":"+c+" "+m; };
   function schoolWeekNo(){
     return Math.round((courseWeekStart-WEEK9_MONDAY)/604800000)+9;
   }
+  function courseWeekOf(date){
+    return Math.round((mondayOf(date)-WEEK9_MONDAY)/604800000)+9;
+  }
+  function courseColorClass(color){
+    const c = String(color||"").replace(/^c-/,"");
+    return {green:"c-green", blue:"c-blue", purple:"c-purple", yellow:"c-yellow",
+            pink:"c-pink", orange:"c-yellow", cyan:"c-cyan"}[c] || "c-green";
+  }
+  function courseActive(c, week){
+    return !Array.isArray(c.weeks) || !c.weeks.length || c.weeks.includes(week);
+  }
   function coursesOn(dateStr){
     const [y,m,d] = dateStr.split("-").map(Number);
-    const day = new Date(y,m-1,d).getDay();
-    return COURSES.filter(c => c.day === day).map(c => ({kind:"course", source:"course", it:{
-      id:c.id+"-"+dateStr, text:c.name, time:c.startTime, endTime:c.endTime,
-      where:c.where, cat:"academic", courseId:c.id
+    const dt = new Date(y,m-1,d);
+    const day = (dt.getDay()+6)%7+1;
+    const week = courseWeekOf(dt);
+    return store.courses.filter(c => c.day === day && courseActive(c, week)).map(c => ({kind:"course", source:"course", it:{
+      id:c.id+"-"+dateStr, text:c.name,
+      time:(PERIODS[c.start-1]||{}).start || "",
+      endTime:(PERIODS[c.end-1]||{}).end || "",
+      where:c.place||c.where||"", cat:"academic", courseId:c.id
     }}));
   }
   function renderCourse(){
@@ -1295,13 +1381,15 @@ window.onerror = function(m,s,l,c){ document.title = "ERR @"+l+":"+c+" "+m; };
         g.appendChild(slot);
       }
     });
-    COURSES.forEach(course => {
+    store.courses.filter(c => courseActive(c, weekNo)).forEach(course => {
       const block = document.createElement("div");
-      block.className = "course-event "+course.color;
+      block.className = "course-event "+courseColorClass(course.color);
       block.style.gridColumn = String(course.day+1);
       block.style.gridRow = (course.start+1)+" / span "+(course.end-course.start+1);
-      block.innerHTML = "<b>"+esc(course.name)+"</b><span>"+course.startTime+"–"+course.endTime+"</span>"+
-        "<span>"+esc(course.where)+"</span>";
+      const st = (PERIODS[course.start-1]||{}).start || "";
+      const et = (PERIODS[course.end-1]||{}).end || "";
+      block.innerHTML = "<b>"+esc(course.name)+"</b><span>"+st+"–"+et+"</span>"+
+        "<span>"+esc(course.place||course.where||"")+"</span>";
       g.appendChild(block);
     });
   }
@@ -1711,6 +1799,179 @@ window.onerror = function(m,s,l,c){ document.title = "ERR @"+l+":"+c+" "+m; };
     }
   });
 
+  // ---------- 双端同步 ----------
+  const SYNC_URL = "https://YOUR-PROJECT.pages.dev/api/sync";
+
+  function setSyncStatus(msg, cls){
+    const box = el("syncStatus");
+    if (box) {
+      box.textContent = msg;
+      box.className = "sync-status" + (cls ? " " + cls : "");
+    }
+    const dot = el("syncDot");
+    if (dot) dot.className = "sync-dot" + (cls === "ok" ? " ok" : cls === "err" ? " err" : "");
+  }
+
+  function scheduleSync(){
+    if (applyingSync || syncing || !store.sync || !store.sync.token) return;
+    clearTimeout(syncTimer);
+    syncTimer = setTimeout(() => runSync("normal", true), 5000);
+  }
+
+  function toPayload(kind, x){
+    if (kind === "course"){
+      return { id:x.id, day:x.day, start:x.start, end:x.end, weeks:x.weeks || [],
+               name:x.name, place:x.place || x.where || "", teacher:x.teacher || "",
+               classNo:x.classNo || "", color:x.color || "green" };
+    }
+    return x;
+  }
+
+  function collectItems(){
+    const out = [];
+    const put = (kind, list, extra) => (list||[]).forEach(x => out.push({
+      kind, id:x.id, updatedAt:x.updatedAt || 0, deleted:false,
+      payload: Object.assign(toPayload(kind, x), extra || {})
+    }));
+    put("todo", store.todo, {done:false});
+    put("todo", store.done.filter(x => x.from !== "ideas"), {done:true});
+    put("event", store.dated);
+    put("thought", store.ideas);
+    put("course", store.courses);
+    (store.deleted||[]).forEach(d => out.push({
+      kind:d.kind, id:d.id, updatedAt:d.updatedAt, deleted:true, payload:null
+    }));
+    return out;
+  }
+
+  function normalizeTodoPayload(p){
+    const out = {...p};
+    if (!out.cat && out.tag) out.cat = /紧急/.test(out.tag) ? "urgent" :
+      /学业|课业/.test(out.tag) ? "academic" : /信息|通知/.test(out.tag) ? "info" : "action";
+    if (!out.note && out.meta) out.note = out.meta;
+    if (!out.date && out.meta && /^\d{4}-\d{2}-\d{2}/.test(out.meta)) out.date = out.meta.slice(0,10);
+    return out;
+  }
+  function normalizeEventPayload(p){
+    const out = {...p};
+    if (!out.where && out.place) out.where = out.place;
+    if (!out.cat) out.cat = "info";
+    return out;
+  }
+  function normalizeCoursePayload(p){
+    const out = {...p};
+    out.name = out.name || out.text || "未命名课程";
+    out.place = out.place || out.where || "";
+    out.day = Number(out.day) || 1;
+    if (out.day < 1) out.day += 7;
+    out.start = Number(out.start) || 1;
+    out.end = Number(out.end) || out.start;
+    if (!Array.isArray(out.weeks) || !out.weeks.length) out.weeks = Array.from({length:18},(_,i)=>i+1);
+    if (!out.color) out.color = "green";
+    return out;
+  }
+
+  function applySnapshot(items){
+    const b = {todo:[], event:[], thought:[], course:[]};
+    (items||[]).forEach(it => {
+      if (!it || it.deleted || !b[it.kind]) return;
+      b[it.kind].push({...(it.payload||{}), id:it.id, updatedAt:it.updatedAt});
+    });
+    store.todo = b.todo.filter(x => !x.done).map(normalizeTodoPayload);
+    const dropped = (store.done||[]).filter(x => x.from === "ideas");
+    store.done = b.todo.filter(x => x.done).map(x => {
+      const {done, ...rest} = x;
+      return {...rest, updatedAt:x.updatedAt};
+    }).concat(dropped);
+    store.dated = b.event.map(normalizeEventPayload);
+    store.ideas = b.thought.map(x => ({...x, text:x.text || ""}));
+    store.courses = b.course.map(normalizeCoursePayload);
+    store.deleted = [];
+    applyingSync = true;
+    save();
+    applyingSync = false;
+    render();
+  }
+
+  async function apiSync(items){
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 15000);
+    try {
+      const res = await fetch(SYNC_URL, {
+        method:"POST",
+        headers:{ "content-type":"application/json", authorization:"Bearer " + store.sync.token },
+        body: JSON.stringify({ items }),
+        signal: ctrl.signal
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.status === 401) throw new Error("令牌不对，检查是否复制完整");
+      if (!res.ok) throw new Error(data.error || ("HTTP " + res.status));
+      return data;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  async function runSync(mode="normal", silent=false){
+    const input = el("syncToken");
+    const typed = input ? input.value.trim() : "";
+    if (typed && typed !== store.sync.token){
+      store.sync.token = typed;
+      applyingSync = true; save(); applyingSync = false;
+    }
+    if (!store.sync.token){
+      setSyncStatus("先在下面填令牌", "err");
+      openSyncPanel();
+      return;
+    }
+    if (syncing){ setSyncStatus("正在同步…"); return; }
+    syncing = true;
+    setSyncStatus("同步中…");
+    try {
+      let final;
+      if (mode === "first"){
+        const snap = await apiSync([]);
+        const server = snap.items || [];
+        const courseCount = server.filter(i => i.kind === "course" && !i.deleted).length;
+        if (!courseCount) throw new Error("云端没有课程，先让手机同步一次");
+        const localIds = new Set([
+          ...store.todo.map(x => "todo|" + x.id),
+          ...store.dated.map(x => "event|" + x.id),
+          ...store.ideas.map(x => "thought|" + x.id)
+        ]);
+        const dels = server
+          .filter(i => ["todo","event","thought"].includes(i.kind) && !i.deleted && !localIds.has(i.kind + "|" + i.id))
+          .map(i => ({kind:i.kind, id:i.id, updatedAt:Date.now(), deleted:true, payload:null}));
+        const push = collectItems().filter(i => i.kind !== "course");
+        final = await apiSync([...push, ...dels]);
+      } else {
+        final = await apiSync(collectItems());
+      }
+      applySnapshot(final.items || []);
+      store.sync.lastSync = Date.now();
+      applyingSync = true; save(); applyingSync = false;
+      setSyncStatus("已同步 · " + new Date().toLocaleTimeString("zh-CN", {hour:"2-digit",minute:"2-digit"}), "ok");
+    } catch(e){
+      const raw = String((e && e.message) || e);
+      const msg = /Failed to fetch|NetworkError|Load failed/i.test(raw) ? "网络不通"
+        : (e && e.name === "AbortError") ? "连接超时" : raw;
+      setSyncStatus("同步失败：" + msg, "err");
+    } finally {
+      syncing = false;
+    }
+  }
+
+  function openSyncPanel(){
+    const p = el("syncModal");
+    if (!p) return;
+    const input = el("syncToken");
+    if (input && !input.value) input.value = store.sync.token || "";
+    setSyncStatus(store.sync.lastSync
+      ? "上次同步：" + new Date(store.sync.lastSync).toLocaleString("zh-CN")
+      : "还没有同步过", store.sync.lastSync ? "ok" : "");
+    p.hidden = false;
+  }
+
   function render(){
     renderTodo(); renderDated(); renderIdeas(); renderStats();
     if (view==="cal") { renderCal(); renderDay(); }
@@ -1882,12 +2143,13 @@ window.onerror = function(m,s,l,c){ document.title = "ERR @"+l+":"+c+" "+m; };
       if (el("blockEndTime").value) timing.endTime = el("blockEndTime").value;
     }
     const place = p.where ? {where:p.where} : {};
+    const updatedAt = Date.now();
     if (kind === "dated") {
-      store.dated.push({id, text:p.text, ...timing, ...place, note:"", cat:p.cat||"action"});
+      store.dated.push({id, text:p.text, ...timing, ...place, note:"", cat:p.cat||"action", updatedAt});
     } else if (kind === "ideas") {
-      store.ideas.push({id, text:p.text});
+      store.ideas.push({id, text:p.text, updatedAt});
     } else {
-      store.todo.push({id, text:p.text, ...timing, ...place, cat:p.cat||"action"});
+      store.todo.push({id, text:p.text, ...timing, ...place, cat:p.cat||"action", updatedAt});
     }
     note.className="note";
     const cat = CATS[p.cat||"action"];
@@ -2039,6 +2301,14 @@ window.onerror = function(m,s,l,c){ document.title = "ERR @"+l+":"+c+" "+m; };
     }
   };
 
+  el("syncBtn").onclick = openSyncPanel;
+  el("syncClose").onclick = () => { el("syncModal").hidden = true; };
+  el("syncModal").onclick = e => { if (e.target === el("syncModal")) el("syncModal").hidden = true; };
+  el("syncRun").onclick = () => runSync("normal");
+  el("syncFirst").onclick = () => {
+    if (confirm("首次同步会：\n\n· 课程从云端拉到电脑\n· 待办 / 日程 / 念头以本机为准覆盖云端\n\n继续？")) runSync("first");
+  };
+
   // 页面可能整夜开着：跨过零点后重算剩余天数和“今天”。
   let renderedDay = iso(startOfToday());
   setInterval(() => {
@@ -2054,6 +2324,7 @@ window.onerror = function(m,s,l,c){ document.title = "ERR @"+l+":"+c+" "+m; };
 
   render();
   if (!peekOnly) presentDailyIdea();
+  if (!peekOnly && store.sync.token) setTimeout(() => runSync("normal", true), 1500);
   syncReminderDaemon();
   setInterval(syncReminderDaemon, 300000);
   if (peekOnly) {
