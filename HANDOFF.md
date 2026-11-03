@@ -1,7 +1,7 @@
-# 三格 · 交接（v1.9）
+# 三格 · 交接（v1.10）
 
 ## 三行摘要
-- 桌面 Electron + 手机 PWA/APK，同一套「待办 / 日程 / 念头 / 课表」；桌面 v1.2，手机 v1.9。
+- 桌面 Electron + 手机 PWA/APK，同一套「待办 / 日程 / 念头 / 课表」；桌面 v1.2，手机 v1.10。
 - 手机在改动后自动同步，桌面支持手动同步；双端真实数据往返仍需一次完整验收。
 - 下一步先修同步字段转换、首次同步覆盖保护和自动化测试。GitHub 只在宏明确说“上传”时才推。
 
@@ -10,11 +10,11 @@
 | 项 | 值 |
 |---|---|
 | 桌面仓库 | `~/Documents/deepseek-harness/default-workspace/triage` |
-| Git tag | `v1.0`（原版重建归档）、`v1.1`（桌面基线）、`v1.9`（手机列表与底栏收尾） |
+| Git tag | `v1.0`（原版重建归档）、`v1.1`（桌面基线）、`v1.10`（手机导航、列表与同步页收尾） |
 | GitHub | `YOUR-GITHUB/trilist`（private，已建；本地 commits 未推送） |
-| 手机源码 | `mobile/index.html`（仓库内，v1.9）/ `<LOCAL_APP>\sange-mobile-preview.html`（工作副本） |
-| 安卓壳 | `<LOCAL_APP>\sange-app`（versionCode 10 / 1.9） |
-| APK | `<LOCAL_APP>\三格-v1.9-debug.apk` |
+| 手机源码 | `mobile/index.html`（仓库内，v1.10）/ `<LOCAL_APP>\sange-mobile-preview.html`（工作副本） |
+| 安卓壳 | `<LOCAL_APP>\sange-app`（versionCode 12 / 1.10） |
+| APK | `<LOCAL_APP>\三格-v1.10-debug.apk` |
 | PWA | https://YOUR-PROJECT.pages.dev/ |
 | Cloudflare Pages | 项目 `sange`，生产分支 `main` |
 

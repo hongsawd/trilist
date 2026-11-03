@@ -1,6 +1,6 @@
 # 三格手机端
 
-`index.html` 是手机端单文件 Web App 的源码（v1.9，含同步）。
+`index.html` 是手机端单文件 Web App 的源码（v1.10，含同步）。
 
 - 直接双击可在浏览器预览；数据存 `localStorage["sange.mobile.v1"]`。
 - PWA 发布：复制到 `deploy/sange/index.html`，用 Wrangler 部署到 Cloudflare Pages 项目 `sange`。

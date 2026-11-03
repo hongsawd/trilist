@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>三格 · 手机端 v1.9</title>
+<title>三格 · 手机端 v1.10</title>
 <style>
   :root{
     --ink:#1f2328; --ink2:#5b6470; --ink3:#8b939e;
@@ -80,7 +80,7 @@
   /* 两栏 */
   .cols{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;align-items:start;}
   .col{padding:10px 10px 8px;min-width:0;min-height:0;display:flex;flex-direction:column;}
-  #todoList,#eventList{width:100%;max-height:min(36vh,320px);overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;padding-right:1px;}
+  #todoList,#eventList{width:100%;max-height:min(48vh,420px);overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;padding-right:1px;}
   .col-head{display:flex;align-items:center;gap:5px;padding:0 1px 8px;margin-bottom:2px;border-bottom:1px solid var(--line);}
   .col-head .t{font-size:12.5px;font-weight:700;}
   .col-head .n{font-size:9.5px;color:var(--ink3);background:#f1f2f4;border-radius:10px;padding:1px 6px;
@@ -127,6 +127,11 @@
   .seg{display:flex;gap:2px;background:#eef0f3;border:1px solid var(--line);border-radius:9px;padding:2px;flex:0 1 auto;}
   .seg-btn{min-height:40px;border:0;background:transparent;font:inherit;font-size:10.5px;color:var(--ink3);padding:5px 7px;border-radius:7px;cursor:pointer;white-space:nowrap;}
   .seg-btn.on{background:#fff;color:var(--ink);font-weight:600;box-shadow:0 1px 2px rgba(20,25,35,.08);}
+  #page1,#page2,#page3{touch-action:pan-y;}
+  #page1.page-from-right,#page2.page-from-right,#page3.page-from-right{animation:pageFromRight .2s ease-out;}
+  #page1.page-from-left,#page2.page-from-left,#page3.page-from-left{animation:pageFromLeft .2s ease-out;}
+  @keyframes pageFromRight{from{opacity:.45;transform:translateX(18px);}to{opacity:1;transform:none;}}
+  @keyframes pageFromLeft{from{opacity:.45;transform:translateX(-18px);}to{opacity:1;transform:none;}}
 
   /* 念头浮签 */
   .thought-card{margin-top:12px;padding:14px;position:relative;overflow:hidden;
@@ -207,9 +212,8 @@
     box-shadow:0 -3px 12px rgba(20,25,35,.035);
     font:inherit;color:var(--ink3);text-align:left;cursor:pointer;}
   .capture:active{background:#fafbfc;}
-  .cap-plus{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex:0 0 28px;
-    background:var(--ink);color:#fff;font-size:18px;line-height:1;}
-  .cap-label{flex:1;min-width:0;font-size:12.5px;color:var(--ink3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .cap-lead{flex:0 0 auto;font-size:12px;font-weight:650;color:var(--ink2);}
+  .cap-label{flex:1;min-width:0;font-size:12px;color:var(--ink3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .cap-arrow{flex:0 0 auto;font-size:18px;color:var(--ink3);line-height:1;}
 
   /* 输入面板 */
@@ -225,6 +229,18 @@
   .sync-status{font-size:11px;color:var(--ink3);margin:12px 0 4px;min-height:16px;line-height:1.5;word-break:break-all;}
   .sync-status.ok{color:#2f8f4e;}
   .sync-status.err{color:#c0392b;}
+  .sync-head{gap:7px;}
+  .sync-badge{display:inline-flex;align-items:center;gap:4px;font-size:9.5px;color:var(--ink3);background:#f1f2f4;border-radius:10px;padding:2px 7px;}
+  .sync-badge::before{content:"";width:5px;height:5px;border-radius:50%;background:#a7aeb8;}
+  .sync-badge.ok{color:#2f7555;background:#e9f4ee;}
+  .sync-badge.ok::before{background:#3d9b6d;}
+  .sync-badge.err{color:#a6453a;background:#fbeceb;}
+  .sync-badge.err::before{background:#c65b50;}
+  .sync-token-toggle{margin-left:auto;}
+  .sync-auto{font-size:9.5px;color:var(--green);background:#e9f4ed;border-radius:10px;padding:2px 7px;white-space:nowrap;}
+  .sync-auto.off{color:var(--ink3);background:#f1f2f4;}
+  .sync-token-box{margin-top:10px;padding:10px;border-radius:8px;background:#f8f9fb;border:1px solid var(--line);}
+  .sync-token-help{font-size:9.5px;color:var(--ink3);margin:5px 0 0;}
   .sync-submit{width:100%;margin-top:10px;display:flex;align-items:center;justify-content:center;gap:6px;}
   .sync-submit:active{transform:scale(.99);filter:brightness(.95);}
   .sync-submit:disabled{opacity:.75;}
@@ -339,19 +355,27 @@
   </div>
 
   <div id="page3" hidden>
-    <section class="card">
-      <div class="sec-head"><span class="t">双端同步</span><span class="sub">手机 ⇄ 云</span></div>
-      <label class="field">令牌<input id="syncToken" type="password" placeholder="粘贴令牌" autocomplete="off"></label>
+    <section class="card sync-card">
+      <div class="sec-head sync-head">
+        <span class="t">云端同步</span>
+        <span class="sync-badge" id="syncBadge">未连接</span>
+        <span class="sync-auto off" id="syncAuto">自动同步</span>
+      </div>
+      <div class="sync-token-box hidden" id="syncTokenBox">
+        <label class="field">访问令牌<input id="syncToken" type="password" placeholder="粘贴令牌" autocomplete="off"></label>
+        <p class="sync-token-help">令牌只保存在这台设备上。</p>
+      </div>
+      <button class="mini sync-token-toggle" id="syncTokenToggle" type="button">填写令牌</button>
       <div class="sync-status" id="syncStatus">还没有同步过</div>
       <button class="submit sync-submit" id="syncNowBtn" type="button"><span class="spinner hidden" id="syncSpin"></span><span id="syncBtnLabel">立即同步</span></button>
-      <p class="sync-hint">同步地址已内置，只需填令牌。改动后会自动同步；第一次同步会把本地全量推上去。</p>
+      <p class="sync-hint">改动后约 4 秒自动同步。课程、待办、日程和念头会按修改时间合并。</p>
     </section>
   </div>
 </div>
 
 <button class="capture" id="capture" type="button" aria-label="随手记一条，默认放进念头">
-  <span class="cap-plus" aria-hidden="true">＋</span>
-  <span class="cap-label">先写下来，默认放进念头</span>
+  <span class="cap-lead">随手记</span>
+  <span class="cap-label">写下念头、待办或日程</span>
   <span class="cap-arrow" aria-hidden="true">→</span>
 </button>
 
@@ -430,7 +454,7 @@
 (function(){
   const $ = s => document.querySelector(s);
   const STORE_KEY = "sange.mobile.v1";
-  const APP_VERSION = "1.9";
+  const APP_VERSION = "1.10";
   const state = { type:"thought" };
   let page = 1;
   let currentThought = null;
@@ -618,6 +642,15 @@
     el.textContent = msg;
     el.classList.toggle("ok", cls === "ok");
     el.classList.toggle("err", cls === "err");
+    const badge = $("#syncBadge");
+    if (badge){
+      const busy = /同步中|正在同步/.test(msg);
+      const ok = cls === "ok" && !busy;
+      const err = cls === "err";
+      badge.textContent = busy ? "同步中" : err ? "需检查" : ok || syncConfigured() ? "已连接" : "未连接";
+      badge.classList.toggle("ok", ok);
+      badge.classList.toggle("err", err);
+    }
   }
 
   function setSyncBusy(on){
@@ -629,7 +662,12 @@
   }
 
   function renderSyncPage(){
-    $("#syncToken").value = (store.sync && store.sync.token) || "";
+    const hasToken = syncConfigured();
+    $("#syncToken").value = "";
+    $("#syncTokenBox").classList.toggle("hidden", hasToken);
+    $("#syncTokenToggle").textContent = hasToken ? "更换令牌" : "填写令牌";
+    $("#syncTokenToggle").setAttribute("aria-expanded", String(!hasToken));
+    $("#syncAuto").classList.toggle("off", !hasToken);
     const has = store.sync && store.sync.lastSync;
     setSyncStatus(
       has ? "上次同步：" + new Date(store.sync.lastSync).toLocaleString("zh-CN") : "还没有同步过",
@@ -727,6 +765,10 @@
     store.sync.url = SYNC_URL;
     if (!syncConfigured()){
       setSyncStatus("先填令牌", "err");
+      $("#syncTokenBox").classList.remove("hidden");
+      $("#syncTokenToggle").textContent = "收起";
+      $("#syncTokenToggle").setAttribute("aria-expanded", "true");
+      setTimeout(() => $("#syncToken").focus(), 40);
       if (!silent) showToast("先填令牌");
       return;
     }
@@ -759,6 +801,11 @@
         applyingSync = false;
         renderAll();
       }
+      $("#syncToken").value = "";
+      $("#syncTokenBox").classList.add("hidden");
+      $("#syncTokenToggle").textContent = "更换令牌";
+      $("#syncTokenToggle").setAttribute("aria-expanded", "false");
+      $("#syncAuto").classList.remove("off");
       setSyncStatus("已同步 · " + new Date(store.sync.lastSync || Date.now()).toLocaleString("zh-CN"), "ok");
       if (!silent) showToast("同步完成");
     } catch(e){
@@ -770,6 +817,11 @@
           ? "网络不通，检查代理或换个网络"
           : raw;
       setSyncStatus("同步失败：" + msg, "err");
+      if (/令牌不对/.test(msg)){
+        $("#syncTokenBox").classList.remove("hidden");
+        $("#syncTokenToggle").textContent = "收起";
+        $("#syncTokenToggle").setAttribute("aria-expanded", "true");
+      }
       if (!silent) showToast("同步失败：" + msg);
     } finally {
       clearTimeout(timer);
@@ -894,7 +946,7 @@
         <div class="row1">
           ${e.courseId
             ? `<span class="course-dot" aria-label="课程"></span>`
-            : `<button class="check ${e.done ? "on" : ""}" data-event-done="${e.id}" aria-label="${e.done ? "恢复" : "完成"}"></button>`}
+            : `<button class="check ${e.done ? "on" : ""}" data-ev-done="${e.id}" aria-label="${e.done ? "恢复" : "完成"}"></button>`}
           <span class="time">${esc(e.time)}</span>
           <span class="text">${esc(e.text)}</span>
         </div>
@@ -1378,10 +1430,18 @@
   }
 
   function setPage(n){
+    const previous = page;
     page = n;
     $("#page1").hidden = n !== 1;
     $("#page2").hidden = n !== 2;
     $("#page3").hidden = n !== 3;
+    const target = $("#page" + n);
+    if (previous !== n && target){
+      target.classList.remove("page-from-right", "page-from-left");
+      void target.offsetWidth;
+      target.classList.add(n > previous ? "page-from-right" : "page-from-left");
+      setTimeout(() => target.classList.remove("page-from-right", "page-from-left"), 240);
+    }
     document.querySelectorAll(".seg-btn").forEach(b => {
       const selected = +b.dataset.page === n;
       b.classList.toggle("on", selected);
@@ -1471,6 +1531,20 @@
   $("#courseDelete").onclick = deleteCourse;
   $("#courseScrim").onclick = closeCourseSheet;
   $("#syncNowBtn").onclick = () => syncNow(false);
+  $("#syncTokenToggle").onclick = () => {
+    const box = $("#syncTokenBox");
+    const open = box.classList.contains("hidden");
+    box.classList.toggle("hidden", !open);
+    $("#syncTokenToggle").textContent = open ? "收起" : syncConfigured() ? "更换令牌" : "填写令牌";
+    $("#syncTokenToggle").setAttribute("aria-expanded", String(open));
+    if (open){
+      $("#syncToken").value = "";
+      setTimeout(() => $("#syncToken").focus(), 40);
+    }
+  };
+  $("#syncToken").addEventListener("keydown", e => {
+    if (e.key === "Enter") { e.preventDefault(); syncNow(false); }
+  });
   $("#endToggle").onclick = () => {
     const opening = $("#eventEndFields").classList.contains("hidden");
     $("#eventEndFields").classList.toggle("hidden", !opening);
@@ -1554,9 +1628,9 @@
     if (e.key === "Enter") { e.preventDefault(); $("#submitBtn").click(); }
   });
 
-  let swipeStart = null;
+  let swipeStart = null, suppressPageClick = false;
   document.addEventListener("pointerdown", e => {
-    if (e.target.closest("button,input,textarea,select,a,.sheet,.scrim")) return;
+    if (e.target.closest("input,textarea,select,.sheet,.scrim,#capture,#ttGrid")) return;
     swipeStart = { x:e.clientX, y:e.clientY, id:e.pointerId };
   }, { passive:true });
   document.addEventListener("pointerup", e => {
@@ -1565,10 +1639,18 @@
     const dy = e.clientY - swipeStart.y;
     swipeStart = null;
     if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.25) return;
-    if (dx < 0 && page === 1) setPage(2);
-    else if (dx > 0 && page === 2) setPage(1);
+    suppressPageClick = true;
+    setTimeout(() => { suppressPageClick = false; }, 350);
+    if (dx < 0 && page < 3) setPage(page + 1);
+    else if (dx > 0 && page > 1) setPage(page - 1);
   }, { passive:true });
   document.addEventListener("pointercancel", () => { swipeStart = null; }, { passive:true });
+  document.addEventListener("click", e => {
+    if (!suppressPageClick) return;
+    e.preventDefault();
+    e.stopPropagation();
+    suppressPageClick = false;
+  }, true);
 
   fillCourseSelects();
   renderCalendar();
