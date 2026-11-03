@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>三格 · 手机端 v1.4</title>
+<title>三格 · 手机端 v1.5</title>
 <style>
   :root{
     --ink:#1b1f24; --ink2:#5f6672; --ink3:#9aa1ab;
@@ -292,9 +292,7 @@
       <div class="sec-head">
         <span class="t">课表</span>
         <div class="week-nav">
-          <button id="prevWeek" type="button" aria-label="上一周">‹</button>
           <span class="week-pill" id="weekPill">第 10 周</span>
-          <button id="nextWeek" type="button" aria-label="下一周">›</button>
         </div>
         <span class="sub" id="weekRange">11/2–11/8</span>
       </div>
@@ -302,7 +300,6 @@
         <button id="thisWeek" type="button">回到本周</button>
         <button id="importBtn" type="button">导入 HTML</button>
         <button id="addCourseBtn" type="button">＋ 添加课程</button>
-        <button id="syncBtn" type="button">同步</button>
       </div>
       <input type="file" id="importFile" accept=".html,.htm,text/html" hidden>
       <div class="tt-head" id="ttHead"></div>
@@ -406,7 +403,7 @@
 (function(){
   const $ = s => document.querySelector(s);
   const STORE_KEY = "sange.mobile.v1";
-  const APP_VERSION = "1.4";
+  const APP_VERSION = "1.5";
   const state = { type:"thought" };
   let page = 1;
   let currentThought = null;
@@ -925,7 +922,7 @@
     });
     $("#ttGrid").innerHTML = html;
     $("#ttGrid").querySelectorAll(".course-block").forEach(el => {
-      el.onclick = () => openCourseEditor(el.dataset.courseId);
+      el.onclick = () => { if (ttSwiped) return; openCourseEditor(el.dataset.courseId); };
     });
   }
 
@@ -1303,9 +1300,24 @@
   $("#allEvents").onclick = openEventsSheet;
   $("#allScrim").onclick = closeAllSheets;
   $("#dayScrim").onclick = closeDaySheet;
-  $("#prevWeek").onclick = () => { weekOffset--; renderTimetable(); };
-  $("#nextWeek").onclick = () => { weekOffset++; renderTimetable(); };
   $("#thisWeek").onclick = () => { weekOffset = 0; renderTimetable(); };
+
+  let ttSwipe = null, ttSwiped = false;
+  $("#ttGrid").addEventListener("pointerdown", e => {
+    ttSwipe = { x:e.clientX, y:e.clientY };
+    ttSwiped = false;
+  }, { passive:true });
+  $("#ttGrid").addEventListener("pointerup", e => {
+    if (!ttSwipe) return;
+    const dx = e.clientX - ttSwipe.x, dy = e.clientY - ttSwipe.y;
+    ttSwipe = null;
+    if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+    ttSwiped = true;
+    weekOffset += dx < 0 ? 1 : -1;
+    renderTimetable();
+    setTimeout(() => { ttSwiped = false; }, 350);
+  }, { passive:true });
+  $("#ttGrid").addEventListener("pointercancel", () => { ttSwipe = null; }, { passive:true });
   $("#addCourseBtn").onclick = () => openCourseEditor(null);
   $("#importBtn").onclick = () => $("#importFile").click();
   $("#importFile").onchange = e => {
