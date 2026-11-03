@@ -1,7 +1,7 @@
 # 三格 · 交接（v1.1）
 
 ## 三行摘要
-- 桌面 Electron + 手机 PWA/APK，同一套「待办 / 日程 / 念头 / 课表」；当前 v1.1。
+- 桌面 Electron + 手机 PWA/APK，同一套「待办 / 日程 / 念头 / 课表」；桌面 v1.1，手机 v1.2。
 - 数据目前各自在本机；桌面、PWA、APK 三套数据互不相通。
 - 下一步做双端同步：Cloudflare Worker + D1，最小 snapshot + 单用户 token + 按条目 LWW。GitHub 只在宏明确说“上传”时才推。
 
@@ -10,11 +10,11 @@
 | 项 | 值 |
 |---|---|
 | 桌面仓库 | `~/Documents/deepseek-harness/default-workspace/triage` |
-| Git tag | `v1.0`（原版重建归档）、`v1.1`（当前） |
+| Git tag | `v1.0`（原版重建归档）、`v1.1`（桌面当前）、`v1.2`（手机同步） |
 | GitHub | `YOUR-GITHUB/trilist`（private，已建；本地 main 领先 origin/main 1 个 docs commit，未推） |
-| 手机源码 | `mobile/index.html`（仓库内）/ `<LOCAL_APP>\sange-mobile-preview.html`（工作副本） |
-| 安卓壳 | `<LOCAL_APP>\sange-app` |
-| APK | `<LOCAL_APP>\三格-v1.1-debug.apk` |
+| 手机源码 | `mobile/index.html`（仓库内，v1.2）/ `<LOCAL_APP>\sange-mobile-preview.html`（工作副本） |
+| 安卓壳 | `<LOCAL_APP>\sange-app`（versionCode 3 / 1.2） |
+| APK | `<LOCAL_APP>\三格-v1.2-debug.apk` |
 | PWA | https://YOUR-PROJECT.pages.dev/ |
 | Cloudflare Pages | 项目 `sange`，生产分支 `main` |
 
