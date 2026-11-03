@@ -1,7 +1,7 @@
 # 三格 · 交接（v1.1）
 
 ## 三行摘要
-- 桌面 Electron + 手机 PWA/APK，同一套「待办 / 日程 / 念头 / 课表」；桌面 v1.1，手机 v1.2。
+- 桌面 Electron + 手机 PWA/APK，同一套「待办 / 日程 / 念头 / 课表」；桌面 v1.1，手机 v1.3。
 - 数据目前各自在本机；桌面、PWA、APK 三套数据互不相通。
 - 下一步做双端同步：Cloudflare Worker + D1，最小 snapshot + 单用户 token + 按条目 LWW。GitHub 只在宏明确说“上传”时才推。
 
@@ -12,9 +12,9 @@
 | 桌面仓库 | `~/Documents/deepseek-harness/default-workspace/triage` |
 | Git tag | `v1.0`（原版重建归档）、`v1.1`（桌面当前）、`v1.2`（手机同步） |
 | GitHub | `YOUR-GITHUB/trilist`（private，已建；本地 main 领先 origin/main 1 个 docs commit，未推） |
-| 手机源码 | `mobile/index.html`（仓库内，v1.2）/ `<LOCAL_APP>\sange-mobile-preview.html`（工作副本） |
+| 手机源码 | `mobile/index.html`（仓库内，v1.3）/ `<LOCAL_APP>\sange-mobile-preview.html`（工作副本） |
 | 安卓壳 | `<LOCAL_APP>\sange-app`（versionCode 3 / 1.2） |
-| APK | `<LOCAL_APP>\三格-v1.2-debug.apk` |
+| APK | `<LOCAL_APP>\三格-v1.3-debug.apk` |
 | PWA | https://YOUR-PROJECT.pages.dev/ |
 | Cloudflare Pages | 项目 `sange`，生产分支 `main` |
 
@@ -133,7 +133,7 @@ export PATH="$JAVA_HOME/bin:$ANDROID_HOME/platform-tools:$PATH"
 
 ### 手机端已接（v1.1+sync）
 
-- 入口：第二页课表工具条「同步」→ 填服务地址和令牌 → 保存并同步。
+- 入口：顶部「设置」页 → 填服务地址和令牌 → 立即同步；请求 12 秒超时。
 - 每条记录带 `updatedAt`；删除写进 `store.deleted` 墓碑，同步成功后清空。
 - 改动后 4 秒防抖自动推；打开页面自动拉；同步期间若本地又改，放弃本次回写，等下一次。
 - `thoughts` 从字符串数组迁移为 `{id, text, updatedAt}`，`loadStore()` 里自动转换。
