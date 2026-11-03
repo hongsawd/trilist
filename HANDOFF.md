@@ -1,7 +1,7 @@
-# 三格 · 交接（v1.7）
+# 三格 · 交接（v1.8）
 
 ## 三行摘要
-- 桌面 Electron + 手机 PWA/APK，同一套「待办 / 日程 / 念头 / 课表」；桌面 v1.2，手机 v1.7。
+- 桌面 Electron + 手机 PWA/APK，同一套「待办 / 日程 / 念头 / 课表」；桌面 v1.2，手机 v1.8。
 - 手机在改动后自动同步，桌面支持手动同步；双端真实数据往返仍需一次完整验收。
 - 下一步先修同步字段转换、首次同步覆盖保护和自动化测试。GitHub 只在宏明确说“上传”时才推。
 
@@ -10,11 +10,11 @@
 | 项 | 值 |
 |---|---|
 | 桌面仓库 | `~/Documents/deepseek-harness/default-workspace/triage` |
-| Git tag | `v1.0`（原版重建归档）、`v1.1`（桌面基线）、`v1.7`（手机视觉统一） |
+| Git tag | `v1.0`（原版重建归档）、`v1.1`（桌面基线）、`v1.8`（手机同步字段修复） |
 | GitHub | `YOUR-GITHUB/trilist`（private，已建；本地 commits 未推送） |
-| 手机源码 | `mobile/index.html`（仓库内，v1.7）/ `<LOCAL_APP>\sange-mobile-preview.html`（工作副本） |
-| 安卓壳 | `<LOCAL_APP>\sange-app`（versionCode 8 / 1.7） |
-| APK | `<LOCAL_APP>\三格-v1.7-debug.apk` |
+| 手机源码 | `mobile/index.html`（仓库内，v1.8）/ `<LOCAL_APP>\sange-mobile-preview.html`（工作副本） |
+| 安卓壳 | `<LOCAL_APP>\sange-app`（versionCode 9 / 1.8） |
+| APK | `<LOCAL_APP>\三格-v1.8-debug.apk` |
 | PWA | https://YOUR-PROJECT.pages.dev/ |
 | Cloudflare Pages | 项目 `sange`，生产分支 `main` |
 
@@ -102,7 +102,7 @@ export PATH="$JAVA_HOME/bin:$ANDROID_HOME/platform-tools:$PATH"
 ## 已知限制
 
 - 桌面已接同步：普通同步双向 LWW；首次同步默认「课程跟云端，其余跟电脑」。
-- 桌面与手机字段命名尚未统一（`cat/note/where` vs `tag/meta/place`），跨端显示可能缺标签。
+- 手机已在 v1.8 适配桌面 `cat/note/where` 字段；仍需真机完成一次双向同步复测。
 - 首次同步缺少本地时间强制抬升，历史示例 ID 碰撞时可能覆盖真实条目。
 - 暂无覆盖同步合并、首次同步和墓碑回放的自动化测试。
 - 桌面课表已进 store，但还没有 HTML 导入；真课表靠首次同步从云端拉。

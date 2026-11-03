@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>三格 · 手机端 v1.7</title>
+<title>三格 · 手机端 v1.8</title>
 <style>
   :root{
     --ink:#1f2328; --ink2:#5b6470; --ink3:#8b939e;
@@ -427,7 +427,7 @@
 (function(){
   const $ = s => document.querySelector(s);
   const STORE_KEY = "sange.mobile.v1";
-  const APP_VERSION = "1.7";
+  const APP_VERSION = "1.8";
   const state = { type:"thought" };
   let page = 1;
   let currentThought = null;
@@ -510,8 +510,8 @@
 
   function normalizeStore(data){
     const stamp = x => { if (!x.id) x.id = uid(); if (!x.updatedAt) x.updatedAt = now(); return x; };
-    data.todos = (data.todos || []).map(stamp);
-    data.events = (data.events || []).map(stamp);
+    data.todos = (data.todos || []).map(stamp).map(normalizeTodoForView);
+    data.events = (data.events || []).map(stamp).map(normalizeEventForView);
     data.courses = (data.courses || []).map(stamp);
     data.thoughts = (data.thoughts || []).map(t =>
       typeof t === "string" ? { id:uid(), text:t, updatedAt:now() } : stamp(t));
@@ -651,16 +651,50 @@
     return out;
   }
 
+  function normalizeTodoForView(x){
+    const out = { ...x };
+    const catMap = {
+      urgent:{tag:"紧急", tone:"pink"},
+      action:{tag:"要办", tone:"amber"},
+      academic:{tag:"学业", tone:"blue"},
+      info:{tag:"信息", tone:"gray"}
+    };
+    const mapped = catMap[out.cat] || {tag:"", tone:"gray"};
+    if (!out.tag) out.tag = mapped.tag;
+    if (!out.tone) out.tone = mapped.tone;
+    if (!out.meta){
+      const when = [out.date ? out.date.slice(5) : "", out.time || ""].filter(Boolean).join(" ");
+      out.meta = [when, out.note || ""].filter(Boolean).join(" · ");
+    }
+    out.done = !!out.done;
+    return out;
+  }
+
+  function normalizeEventForView(x){
+    const out = { ...x };
+    const catMap = {
+      urgent:{kind:"紧急", tone:"pink"},
+      action:{kind:"要办", tone:"amber"},
+      academic:{kind:"学业", tone:"blue"},
+      info:{kind:"日程", tone:"gray"}
+    };
+    const mapped = catMap[out.cat] || {kind:"日程", tone:"pink"};
+    if (!out.place) out.place = out.where || "";
+    if (!out.kind) out.kind = mapped.kind;
+    if (!out.tone) out.tone = mapped.tone;
+    return out;
+  }
+
   function applySnapshot(items){
     const buckets = { todo:[], event:[], course:[], thought:[] };
     (items || []).forEach(it => {
       if (!it || it.deleted || !buckets[it.kind]) return;
       buckets[it.kind].push({ ...(it.payload || {}), id:it.id, updatedAt:it.updatedAt });
     });
-    store.todos = buckets.todo;
-    store.events = buckets.event;
+    store.todos = buckets.todo.map(normalizeTodoForView);
+    store.events = buckets.event.map(normalizeEventForView);
     store.courses = buckets.course;
-    store.thoughts = buckets.thought;
+    store.thoughts = buckets.thought.map(x => ({...x, text:x.text || ""}));
     store.deleted = [];
     currentThought = null;
   }
@@ -803,7 +837,7 @@
           <button class="check ${t.done ? "on" : ""}" data-done="${t.id}" aria-label="${t.done ? "恢复" : "完成"}"></button>
           <span class="text">${esc(t.text)}</span>
         </div>
-        <div class="meta"><span class="chip ${t.tone}">${esc(t.tag)}</span><span>${esc(t.meta)}</span></div>
+        <div class="meta">${t.tag ? `<span class="chip ${t.tone || "gray"}">${esc(t.tag)}</span>` : ""}${t.meta ? `<span>${esc(t.meta)}</span>` : ""}</div>
       </div>`).join("");
     $("#todoList").querySelectorAll("[data-done]").forEach(btn => {
       btn.onclick = () => {
@@ -830,7 +864,7 @@
         </div>
         <div class="meta">
           <span class="date-label">${eventDateLabel(e)}</span>
-          <span class="chip ${e.tone}">${esc(e.kind)}</span>
+          <span class="chip ${e.tone || "gray"}">${esc(e.kind || "日程")}</span>
           ${e.place ? `<span>${esc(e.place)}</span>` : ""}
         </div>
       </div>`).join("") + (list.length > shown.length ? `<div class="more-line">还有 ${list.length - shown.length} 项 ›</div>` : "")
@@ -1205,7 +1239,7 @@
           <button class="check ${t.done ? "on" : ""}" data-all-done="${t.id}" aria-label="${t.done ? "恢复" : "完成"}"></button>
           <span class="text">${esc(t.text)}</span>
         </div>
-        <div class="meta"><span class="chip ${t.tone}">${esc(t.tag)}</span><span>${esc(t.meta)}</span></div>
+        <div class="meta">${t.tag ? `<span class="chip ${t.tone || "gray"}">${esc(t.tag)}</span>` : ""}${t.meta ? `<span>${esc(t.meta)}</span>` : ""}</div>
       </div>`).join("") : `<div class="empty">还没有待办。</div>`;
     $("#allTodoList").querySelectorAll("[data-all-done]").forEach(btn => {
       btn.onclick = () => {
@@ -1235,7 +1269,7 @@
         <span class="time">${esc(e.time || "—")}</span><span class="text">${esc(e.text)}</span>
         ${past ? `<span class="chip gray">已过</span>` : ""}
       </div>
-      <div class="meta"><span class="date-label">${eventDateLabel(e)}</span><span class="chip ${e.tone}">${esc(e.kind)}</span>${e.place ? `<span>${esc(e.place)}</span>` : ""}</div>
+      <div class="meta"><span class="date-label">${eventDateLabel(e)}</span><span class="chip ${e.tone || "gray"}">${esc(e.kind || "日程")}</span>${e.place ? `<span>${esc(e.place)}</span>` : ""}</div>
     </div>`;
   }
   function wireEventChecks(root){
