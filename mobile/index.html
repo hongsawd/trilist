@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>三格 · 手机端 v1.5</title>
+<title>三格 · 手机端 v1.6</title>
 <style>
   :root{
     --ink:#1b1f24; --ink2:#5f6672; --ink3:#9aa1ab;
@@ -91,6 +91,8 @@
     border-bottom:1.5px solid #fff;transform:rotate(-45deg);}
   .item.done .text{text-decoration:line-through;color:var(--ink3);}
   .item.done .meta{opacity:.55;}
+  .item.past .text{text-decoration:line-through;color:var(--ink3);}
+  .item.past .time{color:var(--ink3);}
   .text{font-size:12px;line-height:1.32;font-weight:500;letter-spacing:.1px;}
   .meta{display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-top:2px;font-size:9px;color:var(--ink3);line-height:1.3;}
   .meta .chip{font-size:9px;padding:1.5px 5px;border-radius:5px;font-weight:600;letter-spacing:.2px;}
@@ -403,7 +405,7 @@
 (function(){
   const $ = s => document.querySelector(s);
   const STORE_KEY = "sange.mobile.v1";
-  const APP_VERSION = "1.5";
+  const APP_VERSION = "1.6";
   const state = { type:"thought" };
   let page = 1;
   let currentThought = null;
@@ -725,8 +727,23 @@
                    kind:"课程", tone:c.color, courseId:c.id }));
   }
 
+  function eventEndMoment(e){
+    const endDate = e.endDate || e.date;
+    const t = e.endTime || "";
+    if (t) return new Date(endDate + "T" + t + ":00");
+    if (!e.endDate && e.time){
+      const d = new Date(e.date + "T" + e.time + ":00");
+      d.setMinutes(d.getMinutes() + 50);
+      return d;
+    }
+    return new Date(endDate + "T23:59:59");
+  }
+  function eventPast(e){ return eventEndMoment(e) < new Date(); }
+
   function upcomingEvents(){
-    const base = store.events.filter(e => (e.endDate || e.date) >= TODAY);
+    const now = new Date();
+    const base = store.events.filter(e =>
+      !e.done && eventEndMoment(e) >= now && (e.endDate || e.date) >= TODAY);
     return base.concat(coursesOn(TODAY))
       .sort((a,b) => (a.date+a.time).localeCompare(b.date+b.time));
   }
@@ -1188,14 +1205,37 @@
     $("#todoSheet").classList.add("on");
   }
 
+  function eventRow(e){
+    const past = !e.done && eventPast(e);
+    return `<div class="item sched ${e.done ? "done" : ""} ${past ? "past" : ""}">
+      <div class="row1">
+        <button class="check ${e.done ? "on" : ""}" data-ev-done="${e.id}" aria-label="${e.done ? "恢复" : "完成"}"></button>
+        <span class="time">${esc(e.time || "—")}</span><span class="text">${esc(e.text)}</span>
+        ${past ? `<span class="chip gray">已过</span>` : ""}
+      </div>
+      <div class="meta"><span class="date-label">${eventDateLabel(e)}</span><span class="chip ${e.tone}">${esc(e.kind)}</span>${e.place ? `<span>${esc(e.place)}</span>` : ""}</div>
+    </div>`;
+  }
+  function wireEventChecks(root){
+    root.querySelectorAll("[data-ev-done]").forEach(btn => {
+      btn.onclick = () => {
+        const e = store.events.find(x => x.id === btn.dataset.evDone);
+        if (!e) return;
+        e.done = !e.done;
+        e.updatedAt = now();
+        save();
+        renderEvents();
+        renderCalendar();
+        renderAllEvents();
+      };
+    });
+  }
+
   function renderAllEvents(){
-    const list = upcomingEvents();
-    $("#allEventCount").textContent = `${list.length} 项`;
-    $("#allEventList").innerHTML = list.length ? list.map(e => `
-      <div class="item sched">
-        <div class="row1"><span class="time">${esc(e.time)}</span><span class="text">${esc(e.text)}</span></div>
-        <div class="meta"><span class="date-label">${eventDateLabel(e)}</span><span class="chip ${e.tone}">${esc(e.kind)}</span>${e.place ? `<span>${esc(e.place)}</span>` : ""}</div>
-      </div>`).join("") : `<div class="empty">还没有日程。</div>`;
+    const list = [...store.events].sort((a,b) => (a.date+(a.time||"")).localeCompare(b.date+(b.time||"")));
+    $("#allEventCount").textContent = `${list.filter(e => !e.done).length} 项未完成`;
+    $("#allEventList").innerHTML = list.length ? list.map(eventRow).join("") : `<div class="empty">还没有日程。</div>`;
+    wireEventChecks($("#allEventList"));
   }
 
   function openEventsSheet(){
@@ -1210,11 +1250,8 @@
     const d = new Date(dateStr + "T00:00:00");
     $("#daySheetTitle").textContent = `${d.getMonth()+1}月${d.getDate()}日 周${"日一二三四五六"[d.getDay()]}`;
     const list = eventsOnDate(dateStr).sort((a,b) => (a.time||"99:99").localeCompare(b.time||"99:99"));
-    $("#dayList").innerHTML = list.length ? list.map(e => `
-      <div class="item sched">
-        <div class="row1"><span class="time">${esc(e.time || "—")}</span><span class="text">${esc(e.text)}</span></div>
-        <div class="meta"><span class="date-label">${eventDateLabel(e)}</span><span class="chip ${e.tone}">${esc(e.kind)}</span>${e.place ? `<span>${esc(e.place)}</span>` : ""}</div>
-      </div>`).join("") : `<div class="empty">这天没有安排。</div>`;
+    $("#dayList").innerHTML = list.length ? list.map(eventRow).join("") : `<div class="empty">这天没有安排。</div>`;
+    wireEventChecks($("#dayList"));
     $("#dayScrim").classList.add("on");
     $("#daySheet").classList.add("on");
   }
