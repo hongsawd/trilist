@@ -23,6 +23,8 @@ seed = json.loads((DESKTOP / "seed-data.json").read_text(encoding="utf-8"))
 check("桌面入口", package.get("main") == "main.js")
 check("全局完整侧栏快捷键", "Control+Alt+Space" in main)
 check("全局近期窗口快捷键", 'const QUICK_HOTKEY = "Control+Alt+Q"' in main)
+panel_source = main[main.index("function createPanel()"):main.index("function workArea()")]
+check("主窗口使用普通层级", "alwaysOnTop" not in panel_source and "setAlwaysOnTop" not in panel_source)
 check("渲染进程桥接", "syncReminders" in preload and "openQuick" in preload)
 check("独立近期窗口模式", 'query:{peek:"1"}' in main and "peek-only" in (HERE / "index.html").read_text(encoding="utf-8"))
 check("提醒样式", "background:#fff" in notice and "提前 30 分钟" in notice)

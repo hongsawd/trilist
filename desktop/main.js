@@ -79,7 +79,6 @@ function createPanel() {
     minimizable: false,
     maximizable: false,
     skipTaskbar: true,
-    alwaysOnTop: true,
     backgroundColor: "#f6f7f9",
     title: "三格",
     icon: ICON_FILE,
@@ -91,7 +90,6 @@ function createPanel() {
       spellcheck: false
     }
   });
-  panel.setAlwaysOnTop(true, "floating");
   panel.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
   panel.on("close", event => {
     if (!quitting) {
@@ -146,7 +144,6 @@ function showPanel() {
   if (quickWindow && !quickWindow.isDestroyed()) quickWindow.hide();
   clearInterval(animationTimer);
   const b = panelBounds();
-  panel.setAlwaysOnTop(true, "floating");
   panel.setBounds({ x: b.offX, y: b.y, width: b.width, height: b.height });
   panel.show();
   panel.moveTop();

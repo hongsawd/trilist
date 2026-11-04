@@ -68,7 +68,13 @@ def main():
         check("应用名称与页码指示存在", "<title>三格</title>" in dom and 'id="viewPosition"' in dom)
         check("看板默认数据已渲染", "写周报" in dom and "示例日程 A" in dom)
         check("念头普通列已渲染", 'id="list-ideas"' in dom and "idea-card" in dom)
-        check("今日念头浮签已渲染", 'id="ideaSpotlight"' in dom and "今天浮上来" in dom)
+        check(
+            "今日念头卡已渲染",
+            'id="ideaSpotlight"' in dom
+            and 'class="spot-card"' in dom
+            and 'id="ideaSpotCount"' in dom
+            and "THOUGHT OF THE DAY" not in dom,
+        )
         check("备份入口存在", 'id="exportBtn"' in dom and 'id="importFile"' in dom)
         check(
             "行内编辑与撤销入口存在",
