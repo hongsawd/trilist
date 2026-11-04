@@ -1,7 +1,7 @@
-# 三格 · 交接（v1.13）
+# 三格 · 交接（v1.14）
 
 ## 三行摘要
-- 桌面 Electron + 手机 PWA/APK，同一套「待办 / 日程 / 念头 / 课表」；桌面 v1.3，手机 v1.12。
+- 桌面 Electron + 手机 PWA/APK，同一套「待办 / 日程 / 念头 / 课表」；桌面 v1.4，手机 v1.13。
 - 手机在改动后自动同步，桌面支持手动同步；双端真实数据往返仍需一次完整验收。
 - 下一步先修同步字段转换、首次同步覆盖保护和自动化测试。GitHub 只在宏明确说“上传”时才推。
 
@@ -10,11 +10,11 @@
 | 项 | 值 |
 |---|---|
 | 桌面仓库 | `~/Documents/deepseek-harness/default-workspace/triage` |
-| Git tag | `v1.0`（原版重建归档）、`v1.1`（桌面基线）、`v1.12`（手机编辑删除补齐）、`v1.13`（桌面卡片与窗口层级） |
+| Git tag | `v1.0`（原版重建归档）、`v1.1`（桌面基线）、`v1.12`（手机编辑删除补齐）、`v1.14`（双端自动拉取） |
 | GitHub | `YOUR-GITHUB/trilist`（private，已建；本地 commits 未推送） |
-| 手机源码 | `mobile/index.html`（仓库内，v1.12）/ `<LOCAL_APP>\sange-mobile-preview.html`（工作副本） |
-| 安卓壳 | `<LOCAL_APP>\sange-app`（versionCode 14 / 1.12） |
-| APK | `<LOCAL_APP>\三格-v1.12-debug.apk` |
+| 手机源码 | `mobile/index.html`（仓库内，v1.13）/ `<LOCAL_APP>\sange-mobile-preview.html`（工作副本） |
+| 安卓壳 | `<LOCAL_APP>\sange-app`（versionCode 15 / 1.13） |
+| APK | `<LOCAL_APP>\三格-v1.13-debug.apk` |
 | PWA | https://YOUR-PROJECT.pages.dev/ |
 | Cloudflare Pages | 项目 `sange`，生产分支 `main` |
 
@@ -144,7 +144,7 @@ export PATH="$JAVA_HOME/bin:$ANDROID_HOME/platform-tools:$PATH"
 - 入口：顶部「设置」页 → 只填令牌 → 立即同步；请求 12 秒超时。
 - 接口内置为 `https://YOUR-PROJECT.pages.dev/api/sync`，与 PWA 同域名；workers.dev 版本保留作备用。
 - 每条记录带 `updatedAt`；删除写进 `store.deleted` 墓碑，同步成功后清空。
-- 改动后 4 秒防抖自动推；打开页面自动拉；同步期间若本地又改，跳过旧响应并在本轮结束后自动补同步。
+- 改动后约 1.5 秒防抖自动推；前台约每 10 秒自动拉取，切回页面立即同步；同步期间若本地又改，跳过旧响应并在本轮结束后自动补同步。
 - `thoughts` 从字符串数组迁移为 `{id, text, updatedAt}`，`loadStore()` 里自动转换。
 - 令牌存在 `localStorage`，明文；单机个人使用可接受。
 - 已测：模拟接口的推/拉/墓碑/防抖，以及真实令牌下的桌面、手机双向往返；结果见下方 2026-11-04 验收记录。
@@ -155,6 +155,8 @@ export PATH="$JAVA_HOME/bin:$ANDROID_HOME/platform-tools:$PATH"
 - 双向删除墓碑均已传播成功：一端删除后，另一端同步后条目消失。
 - 测试条目使用独立前缀，验收后已全部删除；桌面和手机的待办、日程、念头、课程数量均恢复到测试前。
 - 不输出、不记录令牌内容；验收前两端原始数据已分别备份到本机 `<LOCAL_APP>\sync-test-backups\2026-11-04`。
+- 开启前台自动拉取后再次实测，全程不点同步：电脑→手机约 5.4 秒，手机→电脑约 5.6 秒；双向删除传播约 4.6–6.3 秒。
+- 测试后两端条目计数恢复到测试前，无测试标记残留。
 
 待定：
 1. ~~token 放哪~~ → 已定：本地文件 + 首启输入，不进仓库；

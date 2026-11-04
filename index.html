@@ -365,7 +365,7 @@
 
 <header>
   <div class="bar">
-    <h1>三格</h1><span class="app-version">v1.3</span>
+    <h1>三格</h1><span class="app-version">v1.4</span>
     <div class="tabs">
       <button class="tab on" data-view="board">看板</button>
       <button class="tab" data-view="cal">日历</button>
@@ -545,7 +545,7 @@
       <button id="syncFirst" type="button">首次同步（课程跟云端，其余跟电脑）</button>
       <button id="syncClose" type="button">关闭</button>
     </div>
-    <p class="sync-tip">普通同步按修改时间合并；首次同步只在第一次用。令牌和手机上填的是同一个。</p>
+    <p class="sync-tip">前台约每 12 秒检查一次云端，切回窗口会立即同步；首次同步只在第一次用。</p>
   </div>
 </div>
 
@@ -699,6 +699,7 @@ window.onerror = function(m,s,l,c){ document.title = "ERR @"+l+":"+c+" "+m; };
   let store;
   let syncing = false, syncTimer = null, applyingSync = false;
   let storeRev = 0, syncPending = false;
+  let syncBackoffUntil = 0;
   try { store = normalizeStore(JSON.parse(localStorage.getItem(KEY))); }
   catch(e){ store = freshStore(); }
   const migrated = migrateStore(store);
@@ -1791,7 +1792,14 @@ window.onerror = function(m,s,l,c){ document.title = "ERR @"+l+":"+c+" "+m; };
       if (syncing){ syncPending = true; return; }
       syncPending = false;
       runSync("normal", true);
-    }, 5000);
+    }, 1500);
+  }
+
+  function pollSync(){
+    if (peekOnly || document.visibilityState !== "visible") return;
+    if (!store.sync || !store.sync.token || !store.sync.lastSync) return;
+    if (syncing || applyingSync || Date.now() < syncBackoffUntil) return;
+    runSync("normal", true);
   }
 
   function toPayload(kind, x){
@@ -1955,10 +1963,12 @@ window.onerror = function(m,s,l,c){ document.title = "ERR @"+l+":"+c+" "+m; };
       } else {
         applySnapshot(final.items || []);
         store.sync.lastSync = Date.now();
+        syncBackoffUntil = 0;
         applyingSync = true; save(); applyingSync = false;
         setSyncStatus("已同步 · " + new Date().toLocaleTimeString("zh-CN", {hour:"2-digit",minute:"2-digit"}), "ok");
       }
     } catch(e){
+      syncBackoffUntil = Date.now() + 30_000;
       const raw = String((e && e.message) || e);
       const msg = /Failed to fetch|NetworkError|Load failed/i.test(raw) ? "网络不通"
         : (e && e.name === "AbortError") ? "连接超时" : raw;
@@ -2336,6 +2346,9 @@ window.onerror = function(m,s,l,c){ document.title = "ERR @"+l+":"+c+" "+m; };
   render();
   if (!peekOnly) presentDailyIdea();
   if (!peekOnly && store.sync.token && store.sync.lastSync) setTimeout(() => runSync("normal", true), 1500);
+  setInterval(pollSync, 12_000);
+  window.addEventListener("focus", pollSync);
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") pollSync(); });
   syncReminderDaemon();
   setInterval(syncReminderDaemon, 300000);
   if (peekOnly) {

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>三格 · 手机端 v1.12</title>
+<title>三格 · 手机端 v1.13</title>
 <style>
   :root{
     --ink:#1f2328; --ink2:#5b6470; --ink3:#8b939e;
@@ -387,7 +387,7 @@
       <button class="mini sync-token-toggle" id="syncTokenToggle" type="button">填写令牌</button>
       <div class="sync-status" id="syncStatus">还没有同步过</div>
       <button class="submit sync-submit" id="syncNowBtn" type="button"><span class="spinner hidden" id="syncSpin"></span><span id="syncBtnLabel">立即同步</span></button>
-      <p class="sync-hint">改动后约 4 秒自动同步。课程、待办、日程和念头会按修改时间合并。</p>
+      <p class="sync-hint">改动后约 1.5 秒上传，前台约每 10 秒检查云端；切回页面会立即同步。</p>
     </section>
   </div>
   </div>
@@ -502,7 +502,7 @@
 (function(){
   const $ = s => document.querySelector(s);
   const STORE_KEY = "sange.mobile.v1";
-  const APP_VERSION = "1.12";
+  const APP_VERSION = "1.13";
   const state = { type:"thought" };
   let page = 1;
   let currentThought = null;
@@ -687,6 +687,7 @@
   const SYNC_URL = "https://YOUR-PROJECT.pages.dev/api/sync";
   const syncConfigured = () => !!(store.sync && store.sync.token);
   let syncing = false, syncTimer = null, syncPending = false;
+  let syncBackoffUntil = 0;
 
   function setSyncStatus(msg, cls){
     const el = $("#syncStatus");
@@ -736,7 +737,14 @@
       if (syncing){ syncPending = true; return; }
       syncPending = false;
       syncNow(true);
-    }, 4000);
+    }, 1500);
+  }
+
+  function pollSync(){
+    if (document.visibilityState !== "visible") return;
+    if (!syncConfigured() || !store.sync.lastSync) return;
+    if (syncing || applyingSync || Date.now() < syncBackoffUntil) return;
+    syncNow(true);
   }
 
   function collectItems(){
@@ -859,6 +867,7 @@
         applyingSync = true;
         applySnapshot(data.items || []);
         store.sync.lastSync = now();
+        syncBackoffUntil = 0;
         save();
         applyingSync = false;
         renderAll();
@@ -876,6 +885,7 @@
       if (!silent) showToast("同步完成");
     } catch(e){
       applyingSync = false;
+      syncBackoffUntil = Date.now() + 30_000;
       const raw = String((e && e.message) || e);
       const msg = (e && e.name === "AbortError")
         ? "连接超时，手机网络到不了同步服务"
@@ -1967,6 +1977,9 @@
   saveWidget();
   setInterval(() => { renderEvents(); updatePageSub(); }, 60000);
   if (syncConfigured()) setTimeout(() => syncNow(true), 800);
+  setInterval(pollSync, 10_000);
+  window.addEventListener("focus", pollSync);
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") pollSync(); });
 })();
 </script>
 </body>
