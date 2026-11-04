@@ -143,6 +143,7 @@ def main():
             time.sleep(0.8)
 
             cdp.eval("document.querySelector('#syncBtn').click()")
+            cdp.eval("document.querySelector('#syncEndpoint').value='https://example.test/api/sync'")
             cdp.eval("document.querySelector('#syncToken').value='test-token'")
             cdp.eval("document.querySelector('#syncRun').click()")
             first_guard = ""

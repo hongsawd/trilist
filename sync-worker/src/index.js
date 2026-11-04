@@ -2,7 +2,6 @@
 // POST /sync  body: { items: [{ kind, id, updatedAt, deleted, payload }] }
 // 返回合并后的全量：{ ok, serverTime, items: [...] }
 
-const OWNER = "default";
 const MAX_ITEMS = 5000;
 const MAX_PAYLOAD = 64 * 1024;
 
@@ -47,6 +46,7 @@ export default {
     const auth = req.headers.get("authorization") || "";
     const token = auth.startsWith("Bearer ") ? auth.slice(7).trim() : "";
     if (!safeEqual(token, env.SYNC_TOKEN)) return json({ error: "unauthorized" }, 401);
+    const owner = String(env.SYNC_OWNER || "default");
 
     let body;
     try {
@@ -87,7 +87,7 @@ export default {
       );
       await env.DB.batch(
         rows.map((r) =>
-          stmt.bind(OWNER, r.kind, r.id, r.payload, r.updatedAt, r.deleted)
+        stmt.bind(owner, r.kind, r.id, r.payload, r.updatedAt, r.deleted)
         )
       );
     }
@@ -95,7 +95,7 @@ export default {
     const { results } = await env.DB.prepare(
       `SELECT kind, id, payload, updated_at, deleted FROM items WHERE owner = ?`
     )
-      .bind(OWNER)
+      .bind(owner)
       .all();
 
     const items = (results || []).map((r) => ({

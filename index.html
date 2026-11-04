@@ -352,6 +352,7 @@
   .sync-panel{width:min(430px,calc(100vw - 40px));background:#fff;border-radius:16px;padding:18px 20px 16px;box-shadow:0 20px 60px rgba(20,30,55,.25);}
   .sync-panel h2{font-size:15px;margin:0 0 12px;}
   .sync-panel label{display:block;font-size:12px;color:var(--ink-2);}
+  .sync-panel label + label{margin-top:8px;}
   .sync-panel input{width:100%;margin-top:5px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font:inherit;font-size:13px;}
   .sync-status{font-size:12px;color:var(--ink-2);margin:10px 0;min-height:18px;}
   .sync-status.err{color:#c0392b;} .sync-status.ok{color:#2f8f4e;}
@@ -365,7 +366,7 @@
 
 <header>
   <div class="bar">
-    <h1>三格</h1><span class="app-version">v1.4</span>
+    <h1>三格</h1><span class="app-version">v1.5</span>
     <div class="tabs">
       <button class="tab on" data-view="board">看板</button>
       <button class="tab" data-view="cal">日历</button>
@@ -538,6 +539,7 @@
 <div class="sync-modal" id="syncModal" hidden>
   <div class="sync-panel" role="dialog" aria-label="双端同步">
     <h2>双端同步</h2>
+    <label>服务地址<input id="syncEndpoint" type="url" placeholder="https://YOUR-PROJECT.pages.dev/api/sync" autocomplete="off"></label>
     <label>令牌<input id="syncToken" type="password" placeholder="粘贴令牌" autocomplete="off"></label>
     <div class="sync-status" id="syncStatus">还没有同步过</div>
     <div class="sync-actions">
@@ -1771,7 +1773,7 @@ window.onerror = function(m,s,l,c){ document.title = "ERR @"+l+":"+c+" "+m; };
   });
 
   // ---------- 双端同步 ----------
-  const SYNC_URL = "https://YOUR-PROJECT.pages.dev/api/sync";
+  const syncEndpoint = () => String((store.sync && store.sync.url) || "").trim();
 
   function setSyncStatus(msg, cls){
     const box = el("syncStatus");
@@ -1784,7 +1786,7 @@ window.onerror = function(m,s,l,c){ document.title = "ERR @"+l+":"+c+" "+m; };
   }
 
   function scheduleSync(){
-    if (applyingSync || !store.sync || !store.sync.token) return;
+    if (applyingSync || !store.sync || !store.sync.token || !syncEndpoint()) return;
     syncPending = true;
     if (syncing) return;
     clearTimeout(syncTimer);
@@ -1797,7 +1799,7 @@ window.onerror = function(m,s,l,c){ document.title = "ERR @"+l+":"+c+" "+m; };
 
   function pollSync(){
     if (peekOnly || document.visibilityState !== "visible") return;
-    if (!store.sync || !store.sync.token || !store.sync.lastSync) return;
+    if (!store.sync || !store.sync.token || !syncEndpoint() || !store.sync.lastSync) return;
     if (syncing || applyingSync || Date.now() < syncBackoffUntil) return;
     runSync("normal", true);
   }
@@ -1881,7 +1883,7 @@ window.onerror = function(m,s,l,c){ document.title = "ERR @"+l+":"+c+" "+m; };
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), 15000);
     try {
-      const res = await fetch(SYNC_URL, {
+      const res = await fetch(syncEndpoint(), {
         method:"POST",
         headers:{ "content-type":"application/json", authorization:"Bearer " + store.sync.token },
         body: JSON.stringify({ items }),
@@ -1897,15 +1899,21 @@ window.onerror = function(m,s,l,c){ document.title = "ERR @"+l+":"+c+" "+m; };
   }
 
   async function runSync(mode="normal", silent=false){
+    const endpointInput = el("syncEndpoint");
+    const typedEndpoint = endpointInput ? endpointInput.value.trim() : "";
+    if (typedEndpoint && typedEndpoint !== store.sync.url){
+      store.sync.url = typedEndpoint;
+      applyingSync = true; save(); applyingSync = false;
+    }
     const input = el("syncToken");
     const typed = input ? input.value.trim() : "";
     if (typed && typed !== store.sync.token){
       store.sync.token = typed;
       applyingSync = true; save(); applyingSync = false;
     }
-    if (!store.sync.token){
-      setSyncStatus("先在下面填令牌", "err");
+    if (!store.sync.token || !syncEndpoint()){
       openSyncPanel();
+      setSyncStatus(!syncEndpoint() ? "先填服务地址，再填令牌" : "先在下面填令牌", "err");
       return;
     }
     if (mode === "normal" && !store.sync.lastSync){
@@ -1986,6 +1994,8 @@ window.onerror = function(m,s,l,c){ document.title = "ERR @"+l+":"+c+" "+m; };
     const p = el("syncModal");
     if (!p) return;
     const input = el("syncToken");
+    const endpoint = el("syncEndpoint");
+    if (endpoint && !endpoint.value) endpoint.value = store.sync.url || "";
     if (input && !input.value) input.value = store.sync.token || "";
     setSyncStatus(store.sync.lastSync
       ? "上次同步：" + new Date(store.sync.lastSync).toLocaleString("zh-CN")

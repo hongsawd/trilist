@@ -1,5 +1,12 @@
 # 版本
 
+## v1.15 · 2026-11-04
+- 同步配置模板化：服务地址和令牌都由用户在本机填写，不再把个人端点写进应用。
+- 增加 Worker、Pages Function、D1 配置和随机令牌生成说明。
+- 个人 D1 配置改为本地忽略文件，仓库只保留示例模板。
+- README 重写为项目介绍、安装、同步部署和限制说明，并加入四张中性示例截图。
+- 桌面版本号 v1.5，手机版本号 v1.14。
+
 ## v1.14 · 2026-11-04
 - 桌面和手机本地修改后的自动上传延迟从 4–5 秒缩短到约 1.5 秒。
 - 两端前台时增加自动拉取：桌面约每 12 秒、手机约每 10 秒检查云端。
@@ -75,7 +82,7 @@
 - 手机 v1.5（versionCode 6）；PWA 已发布。
 
 ## v1.4 · 2026-11-03
-- 同步接口从 `workers.dev` 搬到 PWA 同域名的 Pages Functions：`https://YOUR-PROJECT.pages.dev/api/sync`。
+- 同步接口从独立 Worker 地址迁到 PWA 同域名的 Pages Functions：`https://YOUR-PROJECT.pages.dev/api/sync`。
 - 原因：手机不挂梯子打不开 workers.dev，但能打开 pages.dev。
 - 设置页不再填服务地址，地址内置，只填令牌。
 - Pages 不存明文令牌，只在 D1 `meta` 表存令牌的 SHA-256；函数收到请求现算比对。

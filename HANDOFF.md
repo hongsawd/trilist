@@ -1,7 +1,16 @@
-# 三格 · 交接（v1.14）
+# 三格 · 交接（v1.15）
+
+## 暂停记录（2026-11-04）
+
+- 已安装版本：桌面 v1.4、手机 v1.13；最后一次正式提交为 `v1.14`。
+- 已完成：手机编辑/删除、首次同步防覆盖、真实令牌双向往返、删除墓碑传播、前台自动拉取。
+- 当前未提交：同步服务地址改成“服务地址 + 令牌”模板，Worker/Pages 部署模板与忽略规则。
+- 下次先做：完成并测试上述模板、重建桌面和手机、确认旧数据仍同步，再生成无隐私截图并清理旧 Git 历史。
+- 只有历史清洗和当前文件检查完成后才能推 GitHub；PWA 发布继续暂缓。
+- 同步测试前的数据备份保存在本机私有目录，不进入仓库。
 
 ## 三行摘要
-- 桌面 Electron + 手机 PWA/APK，同一套「待办 / 日程 / 念头 / 课表」；桌面 v1.4，手机 v1.13。
+- 桌面 Electron + 手机 PWA/APK，同一套「待办 / 日程 / 念头 / 课表」；桌面 v1.5，手机 v1.14。
 - 手机在改动后自动同步，桌面支持手动同步；双端真实数据往返仍需一次完整验收。
 - 下一步先修同步字段转换、首次同步覆盖保护和自动化测试。GitHub 只在宏明确说“上传”时才推。
 
@@ -10,12 +19,12 @@
 | 项 | 值 |
 |---|---|
 | 桌面仓库 | `~/Documents/deepseek-harness/default-workspace/triage` |
-| Git tag | `v1.0`（原版重建归档）、`v1.1`（桌面基线）、`v1.12`（手机编辑删除补齐）、`v1.14`（双端自动拉取） |
-| GitHub | `YOUR-GITHUB/trilist`（private，已建；本地 commits 未推送） |
-| 手机源码 | `mobile/index.html`（仓库内，v1.13）/ `<LOCAL_APP>\sange-mobile-preview.html`（工作副本） |
-| 安卓壳 | `<LOCAL_APP>\sange-app`（versionCode 15 / 1.13） |
-| APK | `<LOCAL_APP>\三格-v1.13-debug.apk` |
-| PWA | https://YOUR-PROJECT.pages.dev/ |
+| Git tag | `v1.0`（原版重建归档）、`v1.1`（桌面基线）、`v1.12`（手机编辑删除补齐）、`v1.15`（同步模板与发布整理） |
+| GitHub | `<私有远程仓库>` |
+| 手机源码 | `mobile/index.html`（仓库内，v1.14）/ `<本地手机工作副本>` |
+| 安卓壳 | `<本地 Android 工程>`（versionCode 16 / 1.14） |
+| APK | `<本地构建产物>/三格-v1.14-debug.apk` |
+| PWA | `https://YOUR-PROJECT.pages.dev/` |
 | Cloudflare Pages | 项目 `sange`，生产分支 `main` |
 
 > 推送规则：**只有宏明确说“上传”时才 `git push`**。平时本地提交可以，远端不动。
@@ -23,8 +32,8 @@
 ## 怎么跑
 
 - 桌面：双击桌面「三格」或 `启动三格.vbs`；改 `index.html` 后重启 Electron。
-- 手机预览：浏览器打开 `<LOCAL_APP>\sange-mobile-preview.html`。
-- PWA：直接开 https://YOUR-PROJECT.pages.dev/。
+- 手机预览：浏览器打开本地手机端 `index.html`。
+- PWA：打开自己部署的 Pages 地址。
 - APK：覆盖安装，不要卸载（卸载会清 WebView 本地数据）。
 
 ## 结构
@@ -128,11 +137,11 @@ export PATH="$JAVA_HOME/bin:$ANDROID_HOME/platform-tools:$PATH"
 
 ### 后端已部署（2026-11-02）
 
-- Pages Function（当前）：`deploy/sange/_worker.js`，地址 https://YOUR-PROJECT.pages.dev/api/sync
-- Worker（备用）：`sange-sync`，地址 https://YOUR-WORKER.workers.dev
+- Pages Function（当前）：模板见 `sync-worker/pages-worker.example.js`，地址形如 `https://YOUR-PROJECT.pages.dev/api/sync`
+- Worker（备用）：模板见 `sync-worker/wrangler.example.toml`
 - D1：`sange-sync`（APAC），表 `items(owner, kind, id, payload, updated_at, deleted)`
 - 源码：`sync-worker/`（`wrangler.toml`、`src/index.js`、`schema.sql`）
-- token：本地 `<LOCAL_APP>/deploy/sync-worker/.sync-token.txt`，**不进仓库**。
+- token：保存在本机私有文件，**不进仓库**。
   - Pages 端只存 SHA-256 到 D1 `meta.token_sha256`；Worker 端仍是 `SYNC_TOKEN` secret。
 - 接口：`POST /sync`，`Authorization: Bearer <token>`，body `{items:[{kind,id,updatedAt,deleted,payload}]}`，返回合并后全量
 - 合并规则：`ON CONFLICT ... WHERE excluded.updated_at > items.updated_at`，即按条 LWW
@@ -142,7 +151,7 @@ export PATH="$JAVA_HOME/bin:$ANDROID_HOME/platform-tools:$PATH"
 ### 手机端已接（v1.1+sync）
 
 - 入口：顶部「设置」页 → 只填令牌 → 立即同步；请求 12 秒超时。
-- 接口内置为 `https://YOUR-PROJECT.pages.dev/api/sync`，与 PWA 同域名；workers.dev 版本保留作备用。
+- 接口地址由用户在设置页填写，不再硬编码个人域名。
 - 每条记录带 `updatedAt`；删除写进 `store.deleted` 墓碑，同步成功后清空。
 - 改动后约 1.5 秒防抖自动推；前台约每 10 秒自动拉取，切回页面立即同步；同步期间若本地又改，跳过旧响应并在本轮结束后自动补同步。
 - `thoughts` 从字符串数组迁移为 `{id, text, updatedAt}`，`loadStore()` 里自动转换。
@@ -154,7 +163,7 @@ export PATH="$JAVA_HOME/bin:$ANDROID_HOME/platform-tools:$PATH"
 - 使用真实令牌完成：桌面新增 → 云端 → 手机拉取；手机新增 → 云端 → 桌面拉取。
 - 双向删除墓碑均已传播成功：一端删除后，另一端同步后条目消失。
 - 测试条目使用独立前缀，验收后已全部删除；桌面和手机的待办、日程、念头、课程数量均恢复到测试前。
-- 不输出、不记录令牌内容；验收前两端原始数据已分别备份到本机 `<LOCAL_APP>\sync-test-backups\2026-11-04`。
+- 不输出、不记录令牌内容；验收前两端原始数据已分别备份到本机私有目录。
 - 开启前台自动拉取后再次实测，全程不点同步：电脑→手机约 5.4 秒，手机→电脑约 5.6 秒；双向删除传播约 4.6–6.3 秒。
 - 测试后两端条目计数恢复到测试前，无测试标记残留。
 

@@ -61,7 +61,7 @@ def main():
         raise RuntimeError("找不到 Microsoft Edge")
     store = {
         "todos": [], "events": [], "courses": [], "thoughts": [], "deleted": [],
-        "sync": {"url": "https://YOUR-PROJECT.pages.dev/api/sync", "token": "test-token", "lastSync": 20}
+        "sync": {"url": "https://example.test/api/sync", "token": "test-token", "lastSync": 20}
     }
     mock = """
 (() => {

@@ -2,6 +2,9 @@ name = "sange-sync"
 main = "src/index.js"
 compatibility_date = "2026-11-01"
 
+[vars]
+SYNC_OWNER = "default"
+
 [[d1_databases]]
 binding = "DB"
 database_name = "sange-sync"
