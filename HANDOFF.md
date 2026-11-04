@@ -1,7 +1,7 @@
-# 三格 · 交接（v1.10）
+# 三格 · 交接（v1.12）
 
 ## 三行摘要
-- 桌面 Electron + 手机 PWA/APK，同一套「待办 / 日程 / 念头 / 课表」；桌面 v1.2，手机 v1.10。
+- 桌面 Electron + 手机 PWA/APK，同一套「待办 / 日程 / 念头 / 课表」；桌面 v1.2，手机 v1.12。
 - 手机在改动后自动同步，桌面支持手动同步；双端真实数据往返仍需一次完整验收。
 - 下一步先修同步字段转换、首次同步覆盖保护和自动化测试。GitHub 只在宏明确说“上传”时才推。
 
@@ -10,11 +10,11 @@
 | 项 | 值 |
 |---|---|
 | 桌面仓库 | `~/Documents/deepseek-harness/default-workspace/triage` |
-| Git tag | `v1.0`（原版重建归档）、`v1.1`（桌面基线）、`v1.10`（手机导航、列表与同步页收尾） |
+| Git tag | `v1.0`（原版重建归档）、`v1.1`（桌面基线）、`v1.12`（手机编辑删除补齐） |
 | GitHub | `YOUR-GITHUB/trilist`（private，已建；本地 commits 未推送） |
-| 手机源码 | `mobile/index.html`（仓库内，v1.10）/ `<LOCAL_APP>\sange-mobile-preview.html`（工作副本） |
-| 安卓壳 | `<LOCAL_APP>\sange-app`（versionCode 12 / 1.10） |
-| APK | `<LOCAL_APP>\三格-v1.10-debug.apk` |
+| 手机源码 | `mobile/index.html`（仓库内，v1.12）/ `<LOCAL_APP>\sange-mobile-preview.html`（工作副本） |
+| 安卓壳 | `<LOCAL_APP>\sange-app`（versionCode 14 / 1.12） |
+| APK | `<LOCAL_APP>\三格-v1.12-debug.apk` |
 | PWA | https://YOUR-PROJECT.pages.dev/ |
 | Cloudflare Pages | 项目 `sange`，生产分支 `main` |
 
@@ -68,10 +68,13 @@
 
 ## 构建与发布
 
-### 桌面测试
+### 桌面与同步测试
 ```bash
 python -X utf8 test_web_smoke.py
 python -X utf8 test_web_interactions.py
+python -X utf8 test_sync_safety.py
+python -X utf8 test_mobile_sync_retry.py
+python -X utf8 test_mobile_edit_delete.py
 ```
 
 ### PWA
@@ -102,11 +105,11 @@ export PATH="$JAVA_HOME/bin:$ANDROID_HOME/platform-tools:$PATH"
 ## 已知限制
 
 - 桌面已接同步：普通同步双向 LWW；首次同步默认「课程跟云端，其余跟电脑」。
-- 手机已在 v1.8 适配桌面 `cat/note/where` 字段；仍需真机完成一次双向同步复测。
-- 首次同步缺少本地时间强制抬升，历史示例 ID 碰撞时可能覆盖真实条目。
-- 暂无覆盖同步合并、首次同步和墓碑回放的自动化测试。
+- 手机已适配桌面 `cat/note/where` 字段；仍需用真实令牌完成一次双设备同步复测。
+- 首次同步现已自动备份并抬高本机时间戳，但真实云端上的首次操作仍应先确认设备数据方向。
+- 已新增首次同步防覆盖和手机同步中继续编辑的自动化测试；后端墓碑回放仍需补独立测试。
 - 桌面课表已进 store，但还没有 HTML 导入；真课表靠首次同步从云端拉。
-- 手机待办只能完成/恢复，日程只能新增；编辑/删除待办、日程未做。
+- 手机待办、日程、念头已支持编辑与带撤销的删除；课程仍使用独立编辑器。
 - 小组件未真机验证；立即刷新依赖插件。
 - 顶部安全区使用 `max(16px, env(safe-area-inset-top))`，量产前仍需在刘海屏和曲面屏真机复核。
 - 周数锚点写死 `2026-10-26`（第 9 周周一）；换学期要改。
@@ -141,7 +144,7 @@ export PATH="$JAVA_HOME/bin:$ANDROID_HOME/platform-tools:$PATH"
 - 入口：顶部「设置」页 → 只填令牌 → 立即同步；请求 12 秒超时。
 - 接口内置为 `https://YOUR-PROJECT.pages.dev/api/sync`，与 PWA 同域名；workers.dev 版本保留作备用。
 - 每条记录带 `updatedAt`；删除写进 `store.deleted` 墓碑，同步成功后清空。
-- 改动后 4 秒防抖自动推；打开页面自动拉；同步期间若本地又改，放弃本次回写，等下一次。
+- 改动后 4 秒防抖自动推；打开页面自动拉；同步期间若本地又改，跳过旧响应并在本轮结束后自动补同步。
 - `thoughts` 从字符串数组迁移为 `{id, text, updatedAt}`，`loadStore()` 里自动转换。
 - 令牌存在 `localStorage`，明文；单机个人使用可接受。
 - 已测：模拟接口的推/拉/墓碑/防抖；真实接口只测了 health 和 curl，浏览器带真 token 的往返还没跑。

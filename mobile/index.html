@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>三格 · 手机端 v1.10</title>
+<title>三格 · 手机端 v1.12</title>
 <style>
   :root{
     --ink:#1f2328; --ink2:#5b6470; --ink3:#8b939e;
@@ -111,6 +111,10 @@
   .text{font-size:12px;line-height:1.35;font-weight:500;letter-spacing:.05px;overflow-wrap:anywhere;}
   .meta{display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-top:3px;font-size:9.5px;color:var(--ink3);line-height:1.3;}
   .meta .chip{font-size:9px;padding:1.5px 5px;border-radius:4px;font-weight:600;letter-spacing:.1px;white-space:nowrap;}
+  .item-tools{display:flex;align-items:center;gap:10px;margin-top:5px;padding-left:0;}
+  .item-tools button{border:0;background:transparent;font:inherit;font-size:9.5px;color:var(--ink3);padding:3px 1px;cursor:pointer;}
+  .item-tools button:active{color:var(--ink);}
+  .item-tools .danger{color:#b45353;}
   .chip.blue{background:#e9efff;color:var(--blue);}
   .chip.amber{background:#fbf0dc;color:var(--amber);}
   .chip.pink{background:#fbe8ef;color:var(--pink);}
@@ -127,11 +131,10 @@
   .seg{display:flex;gap:2px;background:#eef0f3;border:1px solid var(--line);border-radius:9px;padding:2px;flex:0 1 auto;}
   .seg-btn{min-height:40px;border:0;background:transparent;font:inherit;font-size:10.5px;color:var(--ink3);padding:5px 7px;border-radius:7px;cursor:pointer;white-space:nowrap;}
   .seg-btn.on{background:#fff;color:var(--ink);font-weight:600;box-shadow:0 1px 2px rgba(20,25,35,.08);}
-  #page1,#page2,#page3{touch-action:pan-y;}
-  #page1.page-from-right,#page2.page-from-right,#page3.page-from-right{animation:pageFromRight .2s ease-out;}
-  #page1.page-from-left,#page2.page-from-left,#page3.page-from-left{animation:pageFromLeft .2s ease-out;}
-  @keyframes pageFromRight{from{opacity:.45;transform:translateX(18px);}to{opacity:1;transform:none;}}
-  @keyframes pageFromLeft{from{opacity:.45;transform:translateX(-18px);}to{opacity:1;transform:none;}}
+  .page-stage{overflow:hidden;transition:height .24s cubic-bezier(.2,.8,.2,1);}
+  .page-track{display:flex;align-items:flex-start;will-change:transform;}
+  #page1,#page2,#page3{flex:0 0 100%;min-width:0;touch-action:pan-y;}
+  .page-track>[hidden]{display:block!important;}
 
   /* 念头浮签 */
   .thought-card{margin-top:12px;padding:14px;position:relative;overflow:hidden;
@@ -183,8 +186,10 @@
     font-size:11px;font-weight:600;color:var(--ink2);font-variant-numeric:tabular-nums;}
   .tt-day.today{color:var(--ink);font-weight:700;}
   .tt-day.today b{background:var(--ink);color:#fff;}
-  .tt-grid{display:grid;grid-template-columns:30px repeat(7,1fr);grid-auto-rows:40px;position:relative;
-    background-image:repeating-linear-gradient(to bottom,transparent 0 39px,rgba(28,34,48,.045) 39px 40px);}
+  .tt-viewport{position:relative;overflow:hidden;background:#fff;touch-action:pan-y;}
+  .tt-grid{display:grid;grid-template-columns:30px repeat(7,1fr);grid-auto-rows:40px;position:relative;background:#fff;
+    background-image:repeating-linear-gradient(to bottom,transparent 0 39px,rgba(28,34,48,.045) 39px 40px);will-change:transform;}
+  .tt-ghost{position:absolute;inset:0;z-index:2;pointer-events:none;background:#fff;}
   .tcell{grid-column:1;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;
     padding-left:1px;font-variant-numeric:tabular-nums;color:var(--ink3);}
   .tcell b{font-size:9px;color:var(--ink2);line-height:1;}
@@ -201,8 +206,9 @@
 
   /* 提示 */
   .toast{position:fixed;left:50%;transform:translateX(-50%) translateY(8px);bottom:calc(84px + env(safe-area-inset-bottom));
-    background:rgba(28,34,48,.9);color:#fff;font-size:12px;padding:7px 14px;border-radius:20px;opacity:0;pointer-events:none;
+    display:flex;align-items:center;gap:12px;background:rgba(28,34,48,.92);color:#fff;font-size:12px;padding:8px 14px;border-radius:10px;opacity:0;pointer-events:none;
     transition:opacity .2s,transform .2s;z-index:30;}
+  .toast button{border:0;background:transparent;color:#fff;font:inherit;font-size:11px;font-weight:700;padding:4px 0;cursor:pointer;}
   .toast.on{opacity:1;transform:translateX(-50%) translateY(0);}
 
   /* 底部随手记 */
@@ -224,6 +230,13 @@
     max-height:92vh;overflow-y:auto;
     z-index:21;transition:transform .24s cubic-bezier(.2,.8,.2,1);box-shadow:0 -8px 28px rgba(20,30,55,.12);}
   .sheet.on{transform:translate(-50%,0);}
+  .window-sheet{top:50%;bottom:auto;width:min(390px,calc(100% - 24px));max-height:76vh;padding:14px 16px 16px;
+    border:1px solid var(--line);border-radius:14px;opacity:0;pointer-events:none;
+    transform:translate(-50%,-46%) scale(.985);transition:transform .2s ease,opacity .2s ease;
+    box-shadow:0 18px 60px rgba(20,30,55,.2);}
+  .window-sheet.on{opacity:1;pointer-events:auto;transform:translate(-50%,-50%) scale(1);}
+  .window-sheet .grip{display:none;}
+  .window-sheet .thought-list{max-height:calc(76vh - 76px);}
   .grip{width:36px;height:4px;border-radius:4px;background:#e2e5eb;margin:0 auto 12px;}
   .sheet-title{font-size:13px;font-weight:700;color:var(--ink);margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--line);}
   .sync-status{font-size:11px;color:var(--ink3);margin:12px 0 4px;min-height:16px;line-height:1.5;word-break:break-all;}
@@ -258,6 +271,8 @@
   .field{flex:1;display:flex;flex-direction:column;gap:3px;font-size:10px;color:var(--ink3);min-width:0;}
   .field input,.field select{width:100%;font:inherit;font-size:12px;min-height:36px;padding:7px 8px;border:1px solid var(--line);border-radius:7px;
     background:#fff;color:var(--ink);}
+  #editSheet>.field{display:flex;flex-direction:column;gap:4px;font-size:10px;color:var(--ink3);margin-top:10px;}
+  #editSheet .sheet-row{margin-top:9px;}
   .end-toggle{font:inherit;font-size:10px;color:var(--ink3);border:0;background:transparent;padding:2px 0 0;
     margin-top:6px;cursor:pointer;text-align:left;}
   .submit{width:100%;margin-top:14px;padding:11px;border:0;border-radius:8px;background:var(--blue);color:#fff;
@@ -294,6 +309,8 @@
     </div>
   </header>
 
+  <div class="page-stage" id="pageStage">
+  <div class="page-track" id="pageTrack">
   <div id="page1">
   <section class="card cal-card" aria-label="日历">
     <div class="cal-head">
@@ -350,7 +367,9 @@
       </div>
       <input type="file" id="importFile" accept=".html,.htm,text/html" hidden>
       <div class="tt-head" id="ttHead"></div>
-      <div class="tt-grid" id="ttGrid"></div>
+      <div class="tt-viewport" id="ttViewport">
+        <div class="tt-grid" id="ttGrid"></div>
+      </div>
     </section>
   </div>
 
@@ -371,6 +390,8 @@
       <p class="sync-hint">改动后约 4 秒自动同步。课程、待办、日程和念头会按修改时间合并。</p>
     </section>
   </div>
+  </div>
+  </div>
 </div>
 
 <button class="capture" id="capture" type="button" aria-label="随手记一条，默认放进念头">
@@ -379,7 +400,7 @@
   <span class="cap-arrow" aria-hidden="true">→</span>
 </button>
 
-<div class="toast" id="toast"></div>
+<div class="toast" id="toast"><span id="toastMsg"></span><button id="toastAction" type="button" hidden>撤销</button></div>
 
 <div class="scrim" id="scrim"></div>
 <div class="sheet" id="sheet" role="dialog" aria-label="记一条">
@@ -404,7 +425,7 @@
 </div>
 
 <div class="scrim" id="listScrim"></div>
-<div class="sheet" id="thoughtSheet" role="dialog" aria-label="全部念头">
+<div class="sheet window-sheet" id="thoughtSheet" role="dialog" aria-label="全部念头">
   <div class="grip"></div>
   <div class="sheet-title">全部念头 <span class="sheet-count" id="allCount"></span></div>
   <div class="thought-list" id="thoughtList"></div>
@@ -432,34 +453,62 @@
 </div>
 
 <div class="scrim" id="allScrim"></div>
-<div class="sheet" id="todoSheet" role="dialog" aria-label="全部待办">
+<div class="sheet window-sheet" id="todoSheet" role="dialog" aria-label="全部待办">
   <div class="grip"></div>
   <div class="sheet-title">全部待办 <span class="sheet-count" id="allTodoCount"></span></div>
   <div class="thought-list" id="allTodoList"></div>
 </div>
-<div class="sheet" id="eventSheet" role="dialog" aria-label="全部日程">
+<div class="sheet window-sheet" id="eventSheet" role="dialog" aria-label="全部日程">
   <div class="grip"></div>
   <div class="sheet-title">全部日程 <span class="sheet-count" id="allEventCount"></span></div>
   <div class="thought-list" id="allEventList"></div>
 </div>
 
 <div class="scrim" id="dayScrim"></div>
-<div class="sheet" id="daySheet" role="dialog" aria-label="当天日程">
+<div class="sheet window-sheet" id="daySheet" role="dialog" aria-label="当天日程">
   <div class="grip"></div>
   <div class="sheet-title" id="daySheetTitle"></div>
   <div class="thought-list" id="dayList"></div>
+</div>
+
+<div class="scrim" id="editScrim"></div>
+<div class="sheet window-sheet" id="editSheet" role="dialog" aria-label="编辑条目">
+  <div class="grip"></div>
+  <div class="sheet-title" id="editTitle">编辑</div>
+  <label class="field">内容<input id="editText" autocomplete="off"></label>
+  <div class="sheet-row" id="editScheduleFields">
+    <label class="field">日期<input type="date" id="editDate"></label>
+    <label class="field">时间<input type="time" id="editTime"></label>
+  </div>
+  <div class="sheet-row hidden" id="editEndFields">
+    <label class="field">结束日期<input type="date" id="editEndDate"></label>
+    <label class="field">结束时间<input type="time" id="editEndTime"></label>
+  </div>
+  <div class="sheet-row" id="editPlaceFields">
+    <label class="field">地点<input id="editPlace" autocomplete="off"></label>
+  </div>
+  <div class="sheet-row">
+    <label class="field" id="editCategoryWrap">分类<select id="editCategory"></select></label>
+    <label class="field hidden" id="editKindWrap">类型<select id="editKind"></select></label>
+  </div>
+  <label class="field" id="editNoteWrap">备注<input id="editNote" autocomplete="off"></label>
+  <div class="course-actions">
+    <button class="danger-btn" id="editDelete" type="button">删除</button>
+    <button class="submit" id="editSave" type="button">保存</button>
+  </div>
 </div>
 
 <script>
 (function(){
   const $ = s => document.querySelector(s);
   const STORE_KEY = "sange.mobile.v1";
-  const APP_VERSION = "1.10";
+  const APP_VERSION = "1.12";
   const state = { type:"thought" };
   let page = 1;
   let currentThought = null;
   let weekOffset = 0;
   let editingCourseId = null;
+  let editingItem = null;
 
   function fmtDate(d){
     const y = d.getFullYear();
@@ -609,6 +658,9 @@
     store.deleted = (store.deleted || []).filter(d => !(d.kind === kind && d.id === id));
     store.deleted.push({ kind, id, updatedAt: now() });
   }
+  function clearTombstone(kind, id){
+    store.deleted = (store.deleted || []).filter(d => !(d.kind === kind && d.id === id));
+  }
 
   function widgetSnapshot(){
     return {
@@ -634,7 +686,7 @@
   // ---- 同步 ----
   const SYNC_URL = "https://YOUR-PROJECT.pages.dev/api/sync";
   const syncConfigured = () => !!(store.sync && store.sync.token);
-  let syncing = false, syncTimer = null;
+  let syncing = false, syncTimer = null, syncPending = false;
 
   function setSyncStatus(msg, cls){
     const el = $("#syncStatus");
@@ -677,8 +729,14 @@
 
   function scheduleSync(){
     if (applyingSync || !syncConfigured()) return;
+    syncPending = true;
+    if (syncing) return;
     clearTimeout(syncTimer);
-    syncTimer = setTimeout(() => syncNow(true), 4000);
+    syncTimer = setTimeout(() => {
+      if (syncing){ syncPending = true; return; }
+      syncPending = false;
+      syncNow(true);
+    }, 4000);
   }
 
   function collectItems(){
@@ -773,9 +831,12 @@
       return;
     }
     if (syncing){
+      syncPending = true;
       setSyncStatus("正在同步，请稍候…");
       return;
     }
+    clearTimeout(syncTimer);
+    syncPending = false;
     syncing = true;
     setSyncBusy(true);
     setSyncStatus("同步中…");
@@ -793,6 +854,7 @@
       const data = await res.json().catch(() => ({}));
       if (res.status === 401) throw new Error("令牌不对，检查是否复制完整");
       if (!res.ok) throw new Error(data.error || ("HTTP " + res.status));
+      let retryAfter = false;
       if (rev === storeRev){
         applyingSync = true;
         applySnapshot(data.items || []);
@@ -800,13 +862,17 @@
         save();
         applyingSync = false;
         renderAll();
+      } else {
+        syncPending = true;
+        retryAfter = true;
+        setSyncStatus("同步期间有新改动，稍后自动补一轮");
       }
       $("#syncToken").value = "";
       $("#syncTokenBox").classList.add("hidden");
       $("#syncTokenToggle").textContent = "更换令牌";
       $("#syncTokenToggle").setAttribute("aria-expanded", "false");
       $("#syncAuto").classList.remove("off");
-      setSyncStatus("已同步 · " + new Date(store.sync.lastSync || Date.now()).toLocaleString("zh-CN"), "ok");
+      if (!retryAfter) setSyncStatus("已同步 · " + new Date(store.sync.lastSync || Date.now()).toLocaleString("zh-CN"), "ok");
       if (!silent) showToast("同步完成");
     } catch(e){
       applyingSync = false;
@@ -827,6 +893,10 @@
       clearTimeout(timer);
       syncing = false;
       setSyncBusy(false);
+      if (syncPending){
+        syncPending = false;
+        syncTimer = setTimeout(() => syncNow(true), 1200);
+      }
     }
   }
 
@@ -901,9 +971,6 @@
   function renderTodos(){
     const active = store.todos.filter(t => !t.done);
     const completed = store.todos.filter(t => t.done);
-    const activeShown = active.slice(0,4);
-    const completedShown = completed.slice(0,2);
-    const totalShown = activeShown.length + completedShown.length;
     $("#todoCount").textContent = active.length;
     updatePageSub();
     const row = (t, compact) => `
@@ -913,10 +980,10 @@
           <span class="text">${esc(t.text)}</span>
         </div>
         ${compact ? "" : `<div class="meta">${t.tag ? `<span class="chip ${t.tone || "gray"}">${esc(t.tag)}</span>` : ""}${t.meta ? `<span>${esc(t.meta)}</span>` : ""}</div>`}
+        <div class="item-tools"><button type="button" data-edit-todo="${t.id}">编辑</button><button type="button" class="danger" data-delete-todo="${t.id}">删除</button></div>
       </div>`;
-    let html = activeShown.map(t => row(t, false)).join("");
-    if (completedShown.length) html += `<div class="mini-sep">已完成 ${completed.length} 项</div>` + completedShown.map(t => row(t, true)).join("");
-    if (store.todos.length > totalShown) html += `<button class="more-line" type="button" data-more-todos>还有 ${store.todos.length - totalShown} 项 ›</button>`;
+    let html = active.map(t => row(t, false)).join("");
+    if (completed.length) html += `<div class="mini-sep">已完成 ${completed.length} 项</div>` + completed.map(t => row(t, true)).join("");
     $("#todoList").innerHTML = html || `<div class="empty">还没有待办。</div>`;
     $("#todoList").querySelectorAll("[data-done]").forEach(btn => {
       btn.onclick = () => {
@@ -928,17 +995,13 @@
         renderTodos();
       };
     });
-    const more = $("#todoList [data-more-todos]");
-    if (more) more.onclick = openTodosSheet;
+    wireItemActions($("#todoList"));
   }
 
   function renderEvents(){
     const list = upcomingEvents();
     const active = list.filter(e => !e.past);
     const ended = list.filter(e => e.past);
-    const activeShown = active.slice(0, ended.length ? 4 : 5);
-    const endedShown = ended.slice(0,2);
-    const shownCount = activeShown.length + endedShown.length;
     $("#eventCount").textContent = list.length;
     updatePageSub();
     const row = e => `
@@ -956,15 +1019,13 @@
           ${e.past ? `<span class="chip gray">已结束</span>` : ""}
           ${e.place ? `<span>${esc(e.place)}</span>` : ""}
         </div>
+        ${e.courseId ? "" : `<div class="item-tools"><button type="button" data-edit-event="${e.id}">编辑</button><button type="button" class="danger" data-delete-event="${e.id}">删除</button></div>`}
       </div>`;
     $("#eventList").innerHTML = list.length
-      ? activeShown.map(row).join("")
-        + (endedShown.length ? `<div class="mini-sep">已结束课程</div>` + endedShown.map(row).join("") : "")
-        + (list.length > shownCount ? `<button class="more-line" type="button" data-more-events>还有 ${list.length - shownCount} 项 ›</button>` : "")
+      ? active.map(row).join("")
+        + (ended.length ? `<div class="mini-sep">已结束课程</div>` + ended.map(row).join("") : "")
       : `<div class="empty">接下来没有安排。</div>`;
     wireEventChecks($("#eventList"));
-    const more = $("#eventList [data-more-events]");
-    if (more) more.onclick = openEventsSheet;
   }
 
   function renderCalendar(){
@@ -1090,6 +1151,8 @@
       </div>`;
     });
     $("#ttGrid").innerHTML = html;
+    $("#ttGrid").style.transition = "none";
+    $("#ttGrid").style.transform = "translate3d(0,0,0)";
     $("#ttGrid").querySelectorAll(".course-block").forEach(el => {
       el.onclick = () => { if (ttSwiped) return; openCourseEditor(el.dataset.courseId); };
     });
@@ -1132,7 +1195,8 @@
         <button class="thought-pick" data-pick="${i}">${esc(t.text)}</button>
         <div class="thought-row-actions">
           <button class="mini" data-to="${i}">转待办</button>
-          <button class="mini danger" data-drop="${i}">搁下</button>
+          <button class="mini" data-edit-thought="${t.id}">编辑</button>
+          <button class="mini danger" data-delete-thought="${t.id}">删除</button>
         </div>
       </div>`).join("") : `<div class="empty">念头池空了。</div>`;
 
@@ -1160,25 +1224,14 @@
         showToast("已放进待办");
       };
     });
-    $("#thoughtList").querySelectorAll("[data-drop]").forEach(b => {
-      b.onclick = () => {
-        const idx = +b.dataset.drop;
-        const thought = store.thoughts[idx];
-        if (thought) tombstone("thought", thought.id);
-        store.thoughts.splice(idx, 1);
-        save();
-        currentThought = null;
-        pickThought();
-        renderThoughtList();
-        showToast("已搁下");
-      };
-    });
+    wireItemActions($("#thoughtList"));
   }
 
   function openThoughtList(){
     closeSheet();
     closeAllSheets();
     closeCourseSheet();
+    closeItemEditor();
     renderThoughtList();
     $("#thoughtSheet").classList.add("on");
     $("#listScrim").classList.add("on");
@@ -1222,7 +1275,7 @@
     $("#courseEnd").value = c ? (c.end || c.start) : 2;
     $("#courseWeeks").value = c ? formatWeeks(c.weeks || []) : "1-18";
     $("#courseDelete").classList.toggle("hidden", !c);
-    closeSheet(); closeThoughtList(); closeAllSheets();
+    closeSheet(); closeThoughtList(); closeAllSheets(); closeItemEditor();
     $("#courseScrim").classList.add("on");
     $("#courseSheet").classList.add("on");
     setTimeout(() => $("#courseName").focus(), 180);
@@ -1336,6 +1389,7 @@
           <span class="text">${esc(t.text)}</span>
         </div>
         <div class="meta">${t.tag ? `<span class="chip ${t.tone || "gray"}">${esc(t.tag)}</span>` : ""}${t.meta ? `<span>${esc(t.meta)}</span>` : ""}</div>
+        <div class="item-tools"><button type="button" data-edit-todo="${t.id}">编辑</button><button type="button" class="danger" data-delete-todo="${t.id}">删除</button></div>
       </div>`).join("") : `<div class="empty">还没有待办。</div>`;
     $("#allTodoList").querySelectorAll("[data-all-done]").forEach(btn => {
       btn.onclick = () => {
@@ -1348,10 +1402,11 @@
         renderAllTodos();
       };
     });
+    wireItemActions($("#allTodoList"));
   }
 
   function openTodosSheet(){
-    closeAllSheets(); closeSheet(); closeThoughtList(); closeCourseSheet();
+    closeAllSheets(); closeSheet(); closeThoughtList(); closeCourseSheet(); closeItemEditor();
     renderAllTodos();
     $("#allScrim").classList.add("on");
     $("#todoSheet").classList.add("on");
@@ -1366,6 +1421,7 @@
         ${past ? `<span class="chip gray">已过</span>` : ""}
       </div>
       <div class="meta"><span class="date-label">${eventDateLabel(e)}</span><span class="chip ${e.tone || "gray"}">${esc(e.kind || "日程")}</span>${e.place ? `<span>${esc(e.place)}</span>` : ""}</div>
+      <div class="item-tools"><button type="button" data-edit-event="${e.id}">编辑</button><button type="button" class="danger" data-delete-event="${e.id}">删除</button></div>
     </div>`;
   }
   function wireEventChecks(root){
@@ -1382,6 +1438,7 @@
         showToast(e.done ? "日程已完成" : "已恢复日程");
       };
     });
+    wireItemActions(root);
   }
 
   function renderAllEvents(){
@@ -1392,14 +1449,14 @@
   }
 
   function openEventsSheet(){
-    closeAllSheets(); closeSheet(); closeThoughtList(); closeCourseSheet();
+    closeAllSheets(); closeSheet(); closeThoughtList(); closeCourseSheet(); closeItemEditor();
     renderAllEvents();
     $("#allScrim").classList.add("on");
     $("#eventSheet").classList.add("on");
   }
 
   function openDaySheet(dateStr){
-    closeAllSheets(); closeSheet(); closeThoughtList(); closeCourseSheet();
+    closeAllSheets(); closeSheet(); closeThoughtList(); closeCourseSheet(); closeItemEditor();
     const d = new Date(dateStr + "T00:00:00");
     $("#daySheetTitle").textContent = `${d.getMonth()+1}月${d.getDate()}日 周${"日一二三四五六"[d.getDay()]}`;
     const list = eventsOnDate(dateStr).sort((a,b) => (a.time||"99:99").localeCompare(b.time||"99:99"));
@@ -1423,25 +1480,179 @@
 
   function showToast(msg){
     const t = $("#toast");
-    t.textContent = msg;
+    $("#toastMsg").textContent = msg;
+    $("#toastAction").hidden = true;
+    $("#toastAction").onclick = null;
     t.classList.add("on");
     clearTimeout(showToast.timer);
     showToast.timer = setTimeout(() => t.classList.remove("on"), 1800);
   }
 
-  function setPage(n){
-    const previous = page;
-    page = n;
-    $("#page1").hidden = n !== 1;
-    $("#page2").hidden = n !== 2;
-    $("#page3").hidden = n !== 3;
-    const target = $("#page" + n);
-    if (previous !== n && target){
-      target.classList.remove("page-from-right", "page-from-left");
-      void target.offsetWidth;
-      target.classList.add(n > previous ? "page-from-right" : "page-from-left");
-      setTimeout(() => target.classList.remove("page-from-right", "page-from-left"), 240);
+  function showUndoToast(msg, undo){
+    const t = $("#toast");
+    $("#toastMsg").textContent = msg;
+    const action = $("#toastAction");
+    action.hidden = false;
+    action.onclick = () => {
+      action.hidden = true;
+      t.classList.remove("on");
+      clearTimeout(showUndoToast.timer);
+      undo();
+    };
+    t.classList.add("on");
+    clearTimeout(showToast.timer);
+    clearTimeout(showUndoToast.timer);
+    showUndoToast.timer = setTimeout(() => t.classList.remove("on"), 6000);
+  }
+
+  function closeItemEditor(){
+    $("#editScrim").classList.remove("on");
+    $("#editSheet").classList.remove("on");
+    editingItem = null;
+  }
+
+  function openItemEditor(kind, id){
+    const list = kind === "todo" ? store.todos : kind === "event" ? store.events : store.thoughts;
+    const item = list.find(x => x.id === id);
+    if (!item) return;
+    closeSheet();
+    closeThoughtList();
+    closeAllSheets();
+    closeCourseSheet();
+    closeItemEditor();
+    editingItem = { kind, id };
+    $("#editTitle").textContent = kind === "todo" ? "编辑待办" : kind === "event" ? "编辑日程" : "编辑念头";
+    $("#editText").value = item.text || "";
+    $("#editDate").value = item.date || "";
+    $("#editTime").value = item.time || "";
+    $("#editEndDate").value = item.endDate || "";
+    $("#editEndTime").value = item.endTime || "";
+    $("#editPlace").value = item.place || item.where || "";
+    $("#editNote").value = item.note || "";
+    $("#editScheduleFields").classList.toggle("hidden", kind === "thought");
+    $("#editEndFields").classList.toggle("hidden", kind !== "event");
+    $("#editPlaceFields").classList.toggle("hidden", kind === "thought");
+    $("#editCategoryWrap").classList.toggle("hidden", kind !== "todo");
+    $("#editKindWrap").classList.toggle("hidden", kind !== "event");
+    $("#editNoteWrap").classList.toggle("hidden", kind === "thought");
+    $("#editCategory").innerHTML = ["紧急","要办","学业","信息"].map(x => `<option value="${x}">${x}</option>`).join("");
+    $("#editCategory").value = item.tag || "要办";
+    const kindOptions = [...new Set(["日程","会议","提醒",item.kind || "日程"])];
+    $("#editKind").innerHTML = kindOptions.map(x => `<option value="${esc(x)}">${esc(x)}</option>`).join("");
+    $("#editKind").value = item.kind || "日程";
+    $("#editScrim").classList.add("on");
+    $("#editSheet").classList.add("on");
+    setTimeout(() => $("#editText").focus(), 120);
+  }
+
+  function saveItemEditor(){
+    if (!editingItem) return;
+    const text = $("#editText").value.trim();
+    if (!text){ $("#editText").focus(); return; }
+    const list = editingItem.kind === "todo" ? store.todos : editingItem.kind === "event" ? store.events : store.thoughts;
+    const item = list.find(x => x.id === editingItem.id);
+    if (!item) return;
+    const date = $("#editDate").value;
+    const time = $("#editTime").value;
+    const place = $("#editPlace").value.trim();
+    item.text = text;
+    item.updatedAt = now();
+    if (editingItem.kind !== "thought"){
+      if (date) item.date = date; else delete item.date;
+      if (time) item.time = time; else delete item.time;
+      if (place) item.place = place; else delete item.place;
     }
+    if (editingItem.kind === "todo"){
+      item.tag = $("#editCategory").value;
+      item.cat = {"紧急":"urgent","要办":"action","学业":"academic","信息":"info"}[item.tag] || "action";
+      item.tone = {"紧急":"pink","要办":"amber","学业":"blue","信息":"gray"}[item.tag] || "gray";
+      item.note = $("#editNote").value.trim();
+      const when = [date ? date.slice(5) : "", time || ""].filter(Boolean).join(" ");
+      item.meta = [when, place ? "@" + place : "", item.note].filter(Boolean).join(" · ");
+    } else if (editingItem.kind === "event"){
+      const endDate = $("#editEndDate").value;
+      const endTime = $("#editEndTime").value;
+      item.kind = $("#editKind").value || "日程";
+      if (!item.date) item.date = TODAY;
+      if (endDate && item.date && endDate >= item.date) item.endDate = endDate; else delete item.endDate;
+      if (item.endDate && endTime) item.endTime = endTime; else delete item.endTime;
+    }
+    save();
+    renderTodos();
+    renderEvents();
+    renderCalendar();
+    renderAllTodos();
+    renderAllEvents();
+    renderThoughtList();
+    if (editingItem.kind === "thought"){ currentThought = null; pickThought(); }
+    closeItemEditor();
+    showToast("已保存");
+  }
+
+  function deleteItem(kind, id){
+    const list = kind === "todo" ? store.todos : kind === "event" ? store.events : store.thoughts;
+    const index = list.findIndex(x => x.id === id);
+    if (index < 0) return;
+    const removed = list.splice(index, 1)[0];
+    tombstone(kind, id);
+    save();
+    renderTodos();
+    renderEvents();
+    renderCalendar();
+    renderAllTodos();
+    renderAllEvents();
+    renderThoughtList();
+    if (kind === "thought"){ currentThought = null; pickThought(); }
+    closeItemEditor();
+    const label = kind === "todo" ? "待办已删除" : kind === "event" ? "日程已删除" : "念头已删除";
+    showUndoToast(label, () => {
+      const restoreList = kind === "todo" ? store.todos : kind === "event" ? store.events : store.thoughts;
+      restoreList.splice(Math.min(index, restoreList.length), 0, {...removed, updatedAt:now()});
+      clearTombstone(kind, id);
+      save();
+      renderTodos();
+      renderEvents();
+      renderCalendar();
+      renderAllTodos();
+      renderAllEvents();
+      renderThoughtList();
+      if (kind === "thought"){ currentThought = null; pickThought(); }
+      showToast("已撤销删除");
+    });
+  }
+
+  function wireItemActions(root){
+    root.querySelectorAll("[data-edit-todo]").forEach(btn => { btn.onclick = () => openItemEditor("todo", btn.dataset.editTodo); });
+    root.querySelectorAll("[data-delete-todo]").forEach(btn => { btn.onclick = () => deleteItem("todo", btn.dataset.deleteTodo); });
+    root.querySelectorAll("[data-edit-event]").forEach(btn => { btn.onclick = () => openItemEditor("event", btn.dataset.editEvent); });
+    root.querySelectorAll("[data-delete-event]").forEach(btn => { btn.onclick = () => deleteItem("event", btn.dataset.deleteEvent); });
+    root.querySelectorAll("[data-edit-thought]").forEach(btn => { btn.onclick = () => openItemEditor("thought", btn.dataset.editThought); });
+    root.querySelectorAll("[data-delete-thought]").forEach(btn => { btn.onclick = () => deleteItem("thought", btn.dataset.deleteThought); });
+  }
+
+  let pageSettled = false;
+  const pageEls = () => [$("#page1"), $("#page2"), $("#page3")];
+  function positionPageTrack(n, animate){
+    const stage = $("#pageStage");
+    const track = $("#pageTrack");
+    const target = pageEls()[n - 1];
+    if (!stage || !track || !target) return;
+    const width = stage.clientWidth;
+    track.style.transition = animate ? "transform .26s cubic-bezier(.2,.8,.2,1)" : "none";
+    track.style.transform = `translate3d(${-(n - 1) * width}px,0,0)`;
+    stage.style.height = target.scrollHeight + "px";
+  }
+
+  function setPage(n, options={}){
+    n = Math.max(1, Math.min(3, n));
+    page = n;
+    pageEls().forEach((el, i) => {
+      if (!el) return;
+      const active = i + 1 === n;
+      el.hidden = !active;
+      el.inert = !active;
+      el.setAttribute("aria-hidden", String(!active));
+    });
     document.querySelectorAll(".seg-btn").forEach(b => {
       const selected = +b.dataset.page === n;
       b.classList.toggle("on", selected);
@@ -1464,13 +1675,17 @@
     closeThoughtList();
     closeAllSheets();
     closeCourseSheet();
-    window.scrollTo({ top:0, behavior:"smooth" });
+    closeItemEditor();
+    positionPageTrack(n, options.animate !== undefined ? options.animate : pageSettled);
+    pageSettled = true;
+    if (options.keepScroll !== true) setTimeout(() => window.scrollTo({ top:0, behavior:"smooth" }), 220);
   }
 
   function openSheet(type){
     closeThoughtList();
     closeAllSheets();
     closeCourseSheet();
+    closeItemEditor();
     $("#eventDate").value = TODAY;
     if (!$("#eventTime").value) $("#eventTime").value = "09:00";
     $("#eventEndDate").value = "";
@@ -1503,20 +1718,65 @@
 
   let ttSwipe = null, ttSwiped = false;
   $("#ttGrid").addEventListener("pointerdown", e => {
-    ttSwipe = { x:e.clientX, y:e.clientY };
+    ttSwipe = { x:e.clientX, y:e.clientY, id:e.pointerId, dragging:false, dx:0 };
     ttSwiped = false;
   }, { passive:true });
+  $("#ttGrid").addEventListener("pointermove", e => {
+    if (!ttSwipe || ttSwipe.id !== e.pointerId) return;
+    const dx = e.clientX - ttSwipe.x;
+    const dy = e.clientY - ttSwipe.y;
+    ttSwipe.dx = dx;
+    if (!ttSwipe.dragging){
+      if (Math.abs(dy) > 8 && Math.abs(dy) > Math.abs(dx)) { ttSwipe = null; return; }
+      if (Math.abs(dx) < 8 || Math.abs(dx) <= Math.abs(dy) * 1.2) return;
+      ttSwipe.dragging = true;
+      $("#ttGrid").style.transition = "none";
+    }
+    if (!ttSwipe.dragging) return;
+    e.preventDefault();
+    $("#ttGrid").style.transform = `translate3d(${dx}px,0,0)`;
+  }, { passive:false });
   $("#ttGrid").addEventListener("pointerup", e => {
-    if (!ttSwipe) return;
-    const dx = e.clientX - ttSwipe.x, dy = e.clientY - ttSwipe.y;
+    if (!ttSwipe || ttSwipe.id !== e.pointerId) return;
+    const dx = ttSwipe.dx;
+    const dragging = ttSwipe.dragging;
     ttSwipe = null;
-    if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+    if (!dragging) return;
+    const viewport = $("#ttViewport");
+    const width = viewport.clientWidth;
+    const shouldSwitch = Math.abs(dx) > Math.max(46, width * 0.16);
     ttSwiped = true;
-    weekOffset += dx < 0 ? 1 : -1;
-    renderTimetable();
+    if (shouldSwitch){
+      const ghost = $("#ttGrid").cloneNode(true);
+      ghost.classList.add("tt-ghost");
+      ghost.style.transform = `translate3d(${dx}px,0,0)`;
+      viewport.appendChild(ghost);
+      weekOffset += dx < 0 ? 1 : -1;
+      renderTimetable();
+      const grid = $("#ttGrid");
+      grid.style.transition = "none";
+      grid.style.transform = `translate3d(${dx < 0 ? width : -width}px,0,0)`;
+      requestAnimationFrame(() => {
+        ghost.style.transition = "transform .24s cubic-bezier(.2,.8,.2,1)";
+        grid.style.transition = "transform .24s cubic-bezier(.2,.8,.2,1)";
+        ghost.style.transform = `translate3d(${dx < 0 ? -width : width}px,0,0)`;
+        grid.style.transform = "translate3d(0,0,0)";
+      });
+      setTimeout(() => ghost.remove(), 280);
+    } else {
+      const grid = $("#ttGrid");
+      grid.style.transition = "transform .2s ease-out";
+      grid.style.transform = "translate3d(0,0,0)";
+    }
     setTimeout(() => { ttSwiped = false; }, 350);
   }, { passive:true });
-  $("#ttGrid").addEventListener("pointercancel", () => { ttSwipe = null; }, { passive:true });
+  $("#ttGrid").addEventListener("pointercancel", () => {
+    if (ttSwipe && ttSwipe.dragging){
+      $("#ttGrid").style.transition = "transform .2s ease-out";
+      $("#ttGrid").style.transform = "translate3d(0,0,0)";
+    }
+    ttSwipe = null;
+  }, { passive:true });
   $("#addCourseBtn").onclick = () => openCourseEditor(null);
   $("#importBtn").onclick = () => $("#importFile").click();
   $("#importFile").onchange = e => {
@@ -1530,6 +1790,9 @@
   $("#courseSave").onclick = saveCourse;
   $("#courseDelete").onclick = deleteCourse;
   $("#courseScrim").onclick = closeCourseSheet;
+  $("#editScrim").onclick = closeItemEditor;
+  $("#editSave").onclick = saveItemEditor;
+  $("#editDelete").onclick = () => { if (editingItem) deleteItem(editingItem.kind, editingItem.id); };
   $("#syncNowBtn").onclick = () => syncNow(false);
   $("#syncTokenToggle").onclick = () => {
     const box = $("#syncTokenBox");
@@ -1628,29 +1891,72 @@
     if (e.key === "Enter") { e.preventDefault(); $("#submitBtn").click(); }
   });
 
-  let swipeStart = null, suppressPageClick = false;
+  let pageGesture = null, suppressPageClick = false;
   document.addEventListener("pointerdown", e => {
-    if (e.target.closest("input,textarea,select,.sheet,.scrim,#capture,#ttGrid")) return;
-    swipeStart = { x:e.clientX, y:e.clientY, id:e.pointerId };
+    if (e.target.closest("input,textarea,select,.sheet,.scrim,#capture,.tt-viewport")) return;
+    pageGesture = { x:e.clientX, y:e.clientY, id:e.pointerId, dx:0, dragging:false };
   }, { passive:true });
+  document.addEventListener("pointermove", e => {
+    if (!pageGesture || pageGesture.id !== e.pointerId) return;
+    const dx = e.clientX - pageGesture.x;
+    const dy = e.clientY - pageGesture.y;
+    pageGesture.dx = dx;
+    if (!pageGesture.dragging){
+      if (Math.abs(dy) > 8 && Math.abs(dy) > Math.abs(dx)) { pageGesture = null; return; }
+      if (Math.abs(dx) < 8 || Math.abs(dx) <= Math.abs(dy) * 1.15) return;
+      pageGesture.dragging = true;
+      $("#pageTrack").style.transition = "none";
+    }
+    if (!pageGesture.dragging) return;
+    e.preventDefault();
+    const stage = $("#pageStage");
+    const track = $("#pageTrack");
+    const width = stage.clientWidth;
+    const direction = dx < 0 ? 1 : -1;
+    const targetIndex = page + direction;
+    const allowed = targetIndex >= 1 && targetIndex <= 3;
+    const visual = allowed ? dx : dx * 0.22;
+    track.style.transform = `translate3d(${-(page - 1) * width + visual}px,0,0)`;
+    const currentHeight = pageEls()[page - 1].scrollHeight;
+    if (allowed){
+      const targetHeight = pageEls()[targetIndex - 1].scrollHeight;
+      const progress = Math.min(1, Math.abs(dx) / width);
+      stage.style.height = currentHeight + (targetHeight - currentHeight) * progress + "px";
+    } else {
+      stage.style.height = currentHeight + "px";
+    }
+  }, { passive:false });
   document.addEventListener("pointerup", e => {
-    if (!swipeStart || swipeStart.id !== e.pointerId) return;
-    const dx = e.clientX - swipeStart.x;
-    const dy = e.clientY - swipeStart.y;
-    swipeStart = null;
-    if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.25) return;
+    if (!pageGesture || pageGesture.id !== e.pointerId) return;
+    const dx = e.clientX - pageGesture.x;
+    const wasDragging = pageGesture.dragging;
+    pageGesture = null;
+    if (!wasDragging) return;
     suppressPageClick = true;
     setTimeout(() => { suppressPageClick = false; }, 350);
-    if (dx < 0 && page < 3) setPage(page + 1);
-    else if (dx > 0 && page > 1) setPage(page - 1);
+    const width = $("#pageStage").clientWidth;
+    const target = page + (dx < 0 ? 1 : -1);
+    const shouldSwitch = target >= 1 && target <= 3 && Math.abs(dx) > Math.max(48, width * 0.18);
+    if (shouldSwitch) setPage(target, { animate:true });
+    else positionPageTrack(page, true);
   }, { passive:true });
-  document.addEventListener("pointercancel", () => { swipeStart = null; }, { passive:true });
+  document.addEventListener("pointercancel", () => {
+    if (pageGesture && pageGesture.dragging) positionPageTrack(page, true);
+    pageGesture = null;
+  }, { passive:true });
   document.addEventListener("click", e => {
     if (!suppressPageClick) return;
     e.preventDefault();
     e.stopPropagation();
     suppressPageClick = false;
   }, true);
+
+  const pageResize = new ResizeObserver(() => {
+    if (pageGesture && pageGesture.dragging) return;
+    positionPageTrack(page, false);
+  });
+  pageEls().forEach(el => { if (el) pageResize.observe(el); });
+  window.addEventListener("resize", () => positionPageTrack(page, false));
 
   fillCourseSelects();
   renderCalendar();
