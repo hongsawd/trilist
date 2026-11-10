@@ -38,7 +38,7 @@
     <div class="badge" aria-hidden="true">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 7v5l3 2"/><path d="M9 2h6"/></svg>
     </div>
-    <div><h1>三格 · 即将开始</h1><div class="sub">提前 30 分钟主动提醒</div></div>
+    <div><h1>三格 · 即将开始</h1><div class="sub" id="reminderLead"></div></div>
   </div>
   <section id="items"></section>
   <div class="foot">
@@ -51,6 +51,8 @@
     return String(value||"").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
   }
   window.renderNotifications = function(items, hotkey){
+    const lead=items[0]?.remindBefore ?? 30;
+    document.getElementById("reminderLead").textContent=lead===0 ? "到点提醒" : "提前 "+lead+" 分钟提醒";
     document.getElementById("hotkey").textContent = "侧栏快捷键 " + hotkey;
     document.getElementById("items").innerHTML = items.map(item => {
       const start = new Date(item.startAt);

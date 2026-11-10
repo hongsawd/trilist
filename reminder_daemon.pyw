@@ -63,7 +63,14 @@ def due_items(now=None):
         start = parse_start(item)
         if not start:
             continue
-        remind_at = start - dt.timedelta(minutes=30)
+        lead = item.get("remindBefore", 30)
+        if lead is None:
+            continue
+        try:
+            lead = max(0, min(10080, int(lead)))
+        except (TypeError, ValueError):
+            lead = 30
+        remind_at = start - dt.timedelta(minutes=lead)
         key = reminder_key(item)
         if remind_at <= now <= start + dt.timedelta(minutes=2) and key not in STATE["notified"]:
             due.append(item)
@@ -137,6 +144,7 @@ class Handler(BaseHTTPRequestHandler):
                     "startAt": start.isoformat(timespec="minutes"),
                     "where": str(item.get("where", ""))[:300],
                     "kind": str(item.get("kind", "日程"))[:30],
+                    "remindBefore": item.get("remindBefore", 30),
                 })
             with LOCK:
                 STATE["items"] = sorted(valid, key=lambda x: x["startAt"])
@@ -194,6 +202,8 @@ class Notifier:
         win.configure(bg=transparent)
         win.resizable(False, False)
         shown = items[:3]
+        lead = shown[0].get("remindBefore", 30) if shown else 30
+        lead_text = "到点提醒" if lead == 0 else f"提前 {lead} 分钟提醒"
         width, height = 520, 178 + len(shown)*66
         x = max(18, win.winfo_screenwidth() - width - 28)
         win.geometry(f"{width}x{height}+{x}+28")
@@ -216,10 +226,10 @@ class Notifier:
         rounded(8, 10, width-4, height-2, 22, "#11151b")
         rounded(3, 3, width-9, height-10, 22, "#20242b")
         rounded(24, 24, 76, 76, 13, "#24668d")
-        canvas.create_text(50, 50, text="30", fill="#fff", font=("Segoe UI", 20, "bold"))
+        canvas.create_text(50, 50, text=str(lead), fill="#fff", font=("Segoe UI", 20, "bold"))
         canvas.create_text(94, 36, text="三格 · 即将开始", anchor="w",
                            fill="#fff", font=("Microsoft YaHei UI", 20, "bold"))
-        canvas.create_text(95, 66, text="提前 30 分钟提醒", anchor="w",
+        canvas.create_text(95, 66, text=lead_text, anchor="w",
                            fill="#aeb5bf", font=("Microsoft YaHei UI", 11))
         canvas.create_text(width-28, 31, text="×", fill="#c7ccd3", anchor="center",
                            font=("Microsoft YaHei UI", 18), tags=("close",))
@@ -241,7 +251,7 @@ class Notifier:
         rounded(24, height-59, 136, height-21, 12, "#2f6fd0", tags=("dismiss",))
         canvas.create_text(80, height-40, text="知道了", fill="#fff",
                            font=("Microsoft YaHei UI", 11, "bold"), tags=("dismiss",))
-        canvas.create_text(width-34, height-40, text="提前 30 分钟 · 本地提醒",
+        canvas.create_text(width-34, height-40, text=lead_text,
                            anchor="e", fill="#777f89", font=("Microsoft YaHei UI", 9))
         canvas.tag_bind("dismiss", "<Button-1>", lambda _e: self.close())
         win.bell()

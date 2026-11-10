@@ -18,7 +18,6 @@ package = json.loads((DESKTOP / "package.json").read_text(encoding="utf-8"))
 main = (DESKTOP / "main.js").read_text(encoding="utf-8")
 preload = (DESKTOP / "preload.js").read_text(encoding="utf-8")
 notice = (DESKTOP / "notification.html").read_text(encoding="utf-8")
-seed = json.loads((DESKTOP / "seed-data.json").read_text(encoding="utf-8"))
 
 check("桌面入口", package.get("main") == "main.js")
 check("全局完整侧栏快捷键", "Control+Alt+Space" in main)
@@ -27,8 +26,8 @@ panel_source = main[main.index("function createPanel()"):main.index("function wo
 check("主窗口使用普通层级", "alwaysOnTop" not in panel_source and "setAlwaysOnTop" not in panel_source)
 check("渲染进程桥接", "syncReminders" in preload and "openQuick" in preload)
 check("独立近期窗口模式", 'query:{peek:"1"}' in main and "peek-only" in (HERE / "index.html").read_text(encoding="utf-8"))
-check("提醒样式", "background:#fff" in notice and "提前 30 分钟" in notice)
-check("种子数据齐全", all(isinstance(seed.get(k), list) for k in ("todo", "dated", "ideas", "done")))
+check("提醒样式和可配置提前时间", "background:#fff" in notice and "reminderLead" in notice)
+check("个人种子文件可选", 'existsSync(SEED_FILE)' in main)
 check("桌面图标", (DESKTOP / "icon.png").stat().st_size > 1000)
 
 for script in ("main.js", "preload.js"):

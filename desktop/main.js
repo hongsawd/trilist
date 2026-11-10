@@ -6,6 +6,7 @@ const {
 } = require("electron");
 const fs = require("node:fs");
 const path = require("node:path");
+const {leadMinutes,isDue}=require("./reminder-rules");
 
 const HOTKEY = "Control+Alt+Space";
 const QUICK_HOTKEY = "Control+Alt+Q";
@@ -205,12 +206,14 @@ function sanitizeReminder(item) {
     title: String(item.title).slice(0, 300),
     startAt: when.toISOString(),
     where: String(item.where || "").slice(0, 300),
-    kind: String(item.kind || "日程").slice(0, 30)
+    kind: String(item.kind || "日程").slice(0, 30),
+    remindBefore:leadMinutes(item.remindBefore)
   };
 }
 
 ipcMain.handle("reminders:sync", (_event, items) => {
   reminders = (Array.isArray(items) ? items : []).map(sanitizeReminder).filter(Boolean);
+  if (!reminders.length && notificationWindow && !notificationWindow.isDestroyed()) notificationWindow.close();
   const active = new Set(reminders.map(x => reminderKey(x)));
   for (const key of notified) if (!active.has(key)) notified.delete(key);
   saveNotified();
@@ -295,7 +298,7 @@ function checkReminders() {
   for (const item of reminders) {
     const start = new Date(item.startAt).getTime();
     const key = reminderKey(item);
-    if (now >= start-30*60_000 && now <= start+2*60_000 && !notified.has(key)) {
+    if (isDue(item,now) && !notified.has(key)) {
       notified.add(key);
       due.push(item);
     }

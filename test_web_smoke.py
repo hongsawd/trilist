@@ -59,7 +59,7 @@ def check(name, cond, detail=""):
 
 def main():
     edge = find_edge()
-    page_url = PAGE.as_uri()
+    page_url = (PAGE.as_uri() + "?demo=1")
     with tempfile.TemporaryDirectory(prefix="triage-web-") as tmp:
         board = run_edge(edge, Path(tmp) / "board-profile", ["--dump-dom", page_url])
         check("看板进程", board.returncode == 0, board.stderr[-500:])

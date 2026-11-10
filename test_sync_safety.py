@@ -146,15 +146,6 @@ def main():
             cdp.eval("document.querySelector('#syncEndpoint').value='https://example.test/api/sync'")
             cdp.eval("document.querySelector('#syncToken').value='test-token'")
             cdp.eval("document.querySelector('#syncRun').click()")
-            first_guard = ""
-            for _ in range(10):
-                first_guard = cdp.eval("document.querySelector('#syncStatus').textContent")
-                if first_guard:
-                    break
-                time.sleep(0.1)
-            check("首次同步前拦截普通合并",
-                  "首次同步" in first_guard, first_guard)
-            cdp.eval("document.querySelector('#syncFirst').click()")
 
             status = ""
             for _ in range(80):
@@ -168,14 +159,14 @@ def main():
             pushes = [request for request in requests if request.get("items")]
             check("首次同步先拉后推", bool(requests) and bool(pushes), requests)
             pushed = pushes[0]["items"]
-            local_todo = next(x for x in pushed if x["kind"] == "todo" and x["id"] == "t1")
-            remote_delete = next(x for x in pushed if x["kind"] == "todo" and x["id"] == "remote-only")
-            check("本机同名条目时间戳被抬高", local_todo["updatedAt"] > 20, local_todo)
-            check("云端多余条目被墓碑删除", remote_delete["deleted"] is True, remote_delete)
+            local_todo = next(x for x in pushed if x["kind"] == "todo" and x["payload"] and x["payload"].get("text") == "本机真实待办")
+            remote_only = next(x for x in pushed if x["kind"] == "todo" and x["id"] == "remote-only")
+            check("同名条目重新分配 ID，保留两端", local_todo["id"] != "t1", local_todo)
+            check("首次连接保留云端独有条目", remote_only["deleted"] is False, remote_only)
 
             stored = cdp.eval("JSON.parse(localStorage.getItem('triage.v2'))")
             check("本机待办未被云端同名示例覆盖",
-                  stored["todo"][0]["text"] == "本机真实待办", stored["todo"])
+                  any(t["text"] == "本机真实待办" for t in stored["todo"]), stored["todo"])
             check("课程从云端拉入",
                   any(c["id"] == "c1" for c in stored["courses"]), stored["courses"])
             check("同步前备份存在",

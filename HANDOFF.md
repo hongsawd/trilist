@@ -1,180 +1,50 @@
-# 三格 · 交接（v1.15）
+# 三格交接 · v1.16（2026-11-10）
 
-## 暂停记录（2026-11-04）
+## 本轮要求
 
-- 已安装版本：桌面 v1.4、手机 v1.13；最后一次正式提交为 `v1.14`。
-- 已完成：手机编辑/删除、首次同步防覆盖、真实令牌双向往返、删除墓碑传播、前台自动拉取。
-- 当前未提交：同步服务地址改成“服务地址 + 令牌”模板，Worker/Pages 部署模板与忽略规则。
-- 下次先做：完成并测试上述模板、重建桌面和手机、确认旧数据仍同步，再生成无隐私截图并清理旧 Git 历史。
-- 只有历史清洗和当前文件检查完成后才能推 GitHub；PWA 发布继续暂缓。
-- 同步测试前的数据备份保存在本机私有目录，不进入仓库。
+修复手机滑动卡顿、日程列滑动不畅，统一手机电脑排序；优先缩短同步延迟。采用管理员托管、使用者只填令牌的分发方式，清除交付文件中的私人数据。
 
-## 三行摘要
-- 桌面 Electron + 手机 PWA/APK，同一套「待办 / 日程 / 念头 / 课表」；桌面 v1.5，手机 v1.14。
-- 手机在改动后自动同步，桌面支持手动同步；双端真实数据往返仍需一次完整验收。
-- 下一步先修同步字段转换、首次同步覆盖保护和自动化测试。GitHub 只在宏明确说“上传”时才推。
+## 当前实现
 
-## 路径与版本
+- 桌面页面 v1.6，手机页面 / APK v1.15，Android versionCode 17。
+- `shared/sange-core.js` 统一排序、字段别名、单调版本时间、墓碑合并、快照验证和增量上传记录。
+- 待办按未完成、紧急程度、截止日期、稳定编号排序；日程按日期，同日显式事件在默认课程前，过期课程沉底。
+- 手机两列固定相同滚动空间。横向拖动缓存几何信息、逐帧平移，不再在每次移动时读写整页高度。课表拖动过程中直接显示相邻周预览。
+- 编辑后 350ms 发起同步；可见前台每 2 秒检查，只上传变化项。无内容变化不重画列表；收到变化时保留两列滚动位置。
+- 初次连接非破坏性合并，不再要求云端先有课表；同编号内容不同则保留两份。本机备份成功后才继续。
+- 修复旧数据迁移时同步地址函数尚未初始化导致桌面停止启动的问题。
+- 修复已完成日程被当成待办同步的问题。清空地点不会被旧别名恢复。
+- 新装默认空清单；示例通过 `?demo=1` 显式开启。
+- 托管构建内置公开服务地址，隐藏地址字段；管理员发放独立令牌，每个令牌一个空间。切换令牌前备份并切换空白清单，避免串数据。
+- 服务端兼容旧个人令牌。多人需要先执行新增 `sync_users` 的 schema，再发布同一份 Worker / Pages 处理器。
 
-| 项 | 值 |
-|---|---|
-| 桌面仓库 | `~/Documents/deepseek-harness/default-workspace/triage` |
-| Git tag | `v1.0`（原版重建归档）、`v1.1`（桌面基线）、`v1.12`（手机编辑删除补齐）、`v1.15`（同步模板与发布整理） |
-| GitHub | `<私有远程仓库>` |
-| 手机源码 | `mobile/index.html`（仓库内，v1.14）/ `<本地手机工作副本>` |
-| 安卓壳 | `<本地 Android 工程>`（versionCode 16 / 1.14） |
-| APK | `<本地构建产物>/三格-v1.14-debug.apk` |
-| PWA | `https://YOUR-PROJECT.pages.dev/` |
-| Cloudflare Pages | 项目 `sange`，生产分支 `main` |
+## 已验证
 
-> 推送规则：**只有宏明确说“上传”时才 `git push`**。平时本地提交可以，远端不动。
+- 桌面交互、手机编辑删除撤销、同步期间继续编辑补发、首次连接保护检查通过。
+- 用真实 Worker 代码和内存 SQLite 验证两个令牌使用相同记录编号仍隔离，令牌撤销、无效凭证、旧凭证兼容、相同时间戳删除优先及非法批次拒绝。
+- 两个独立浏览器对实际 Worker 处理器的本机 HTTP 联调：电脑到手机页面约 2.3 秒，手机到电脑约 2 秒，完成传播约 1.1–1.4 秒，删除后继续轮询不复活。不是手机真机网络延迟实测。
+- CDP 触摸事件验证两列原生纵向滚动、页面平移、设置返回、课表切周；375px 小屏、横屏与减少动画检查通过。
 
-## 怎么跑
+## 上线和真机仍待完成
 
-- 桌面：双击桌面「三格」或 `启动三格.vbs`；改 `index.html` 后重启 Electron。
-- 手机预览：浏览器打开本地手机端 `index.html`。
-- PWA：打开自己部署的 Pages 地址。
-- APK：覆盖安装，不要卸载（卸载会清 WebView 本地数据）。
+- 已翻阅 Claude 的实际配对记录，确认相同 adb 工具与原设备标识。新提供的校园网地址配对失败、连接超时；当前未覆盖安装或真机验收。APK 已构建并核对与源码一致。
+- 多人服务已获明确授权并上线。上线前已完整导出 D1，迁移只增加表；线上验证旧令牌、原有记录、两个新令牌隔离及 401 拒绝均通过。临时令牌和测试数据已删除。现有 PWA 页面逐字节未改变。
+- 不能把现有个人令牌发给其他人。新令牌通过 `sync-worker/issue-token.py` 私下生成、注册、发放。
+- GitHub 已获本轮明确推送授权，完成隐私扫描后推送 v1.16；PWA 页面不更新。手机真机按最新要求暂缓，先交付 APK。共享代码或安装包前清隐私。
 
-## 结构
+## 仍有的产品限制
 
-| 文件 | 作用 |
-|---|---|
-| `index.html` | 桌面主界面、看板、日历、课表、输入 |
-| `desktop/` | Electron 主进程、托盘、提醒、`seed-data.json`（不入库） |
-| `mobile/index.html` | 手机端单文件 Web App |
-| `sange-app` | Capacitor 安卓壳 + 原生小组件 |
-| `HANDOFF.md` / `CHANGELOG.md` | 交接、版本记录 |
-| `test_web_smoke.py` / `test_web_interactions.py` | 桌面验收 |
+前台轮询不是即时推送，手机后台受到系统限制。课程周数仍使用原有学期锚点。Android 小组件尚未补真机验证。冲突使用整条记录较新版本，尚无按字段合并或冲突选择界面。
 
-## 数据
+## 入口
 
-手机 `localStorage["sange.mobile.v1"]`：
-```js
-{
-  todos:   [{ id, text, meta, tag, tone, done }],
-  events:  [{ id, date, time, endDate, endTime, text, place, kind, tone }],
-  courses: [{ id, day, start, end, weeks:[5,6...], name, place, teacher, classNo, color }],
-  thoughts:[{ id, text }],
-  deleted: [{ kind, id, updatedAt }],          // 待同步的删除墓碑
-  sync:    { url, token, lastSync }
-}
-```
-- 所有条目都有 `updatedAt`（毫秒时间戳），同步按它做 LWW。
-- `day` 周一=1…周日=7；`start/end` 1–14 节；`weeks` 是显式周数组。
-- 日历按 `date <= 某天 <= endDate` 显示多天日程。
+桌面用原有启动器和 `Ctrl+Alt+Space`；`Ctrl+Alt+Q` 打开近期窗口。
+手机覆盖安装 APK，不能卸载再装。项目主仓库仍是 `triage`，Android 壳在本机独立工程；打包时必须同时复制 `shared/`。
 
-桌面 `localStorage["triage.v2"]`：`todo`、`dated`、`ideas`、`done`；`dated` 可选 `endDate` / `endTime`。
+## 回滚与隐私
 
-## 课表导入
+本轮修改前已在当前聊天的私有工作目录备份桌面 profile、原始 localStorage 和 Android 修改前文件。凭证、服务配置和真实数据备份不进入仓库、输出安装包或源码包。
 
-- 手机「课表」页 → 「导入 HTML」→ 选教务系统另存的 HTML。
-- 表格：`table.wut_table`；8 列（星期日在前），9 行（1-2 … 13-14 节）。
-- 单元格：`课程名[班级] 教师 周次,星期N,节次,地点`。
-- 周次：`5-18周`、`5周`、`8周,14周`、`1-16周(单)`、`1-16周(双)`。
-- 去重键：`name|day|start|end|weeks|place|teacher`；导入前会确认覆盖。
-- 解析在浏览器本地完成，文件不上传。
+## 追加界面与文档要求
 
-## 构建与发布
-
-### 桌面与同步测试
-```bash
-python -X utf8 test_web_smoke.py
-python -X utf8 test_web_interactions.py
-python -X utf8 test_sync_safety.py
-python -X utf8 test_mobile_sync_retry.py
-python -X utf8 test_mobile_edit_delete.py
-```
-
-### PWA
-```bash
-cd <LOCAL_APP>
-cp sange-mobile-preview.html deploy/sange/index.html
-npx --yes wrangler@latest pages deploy deploy/sange --project-name sange --branch main
-```
-
-### APK
-```bash
-cp <LOCAL_APP>/sange-mobile-preview.html <LOCAL_APP>/sange-app/www/index.html
-cd <LOCAL_APP>/sange-app
-npx cap copy android
-cd android
-export JAVA_HOME="<LOCAL_APP>/jdk21/jdk-21.0.13+9"
-export ANDROID_HOME="<LOCAL_APP>/android-sdk"
-export PATH="$JAVA_HOME/bin:$ANDROID_HOME/platform-tools:$PATH"
-./gradlew.bat assembleDebug --no-daemon
-```
-产物 `android/app/build/outputs/apk/debug/app-debug.apk`；版本在 `android/app/build.gradle`。
-
-### 小组件
-- `SangeWidgetProvider` 读 `CapacitorStorage` / `sange.widget`。
-- Web 端 `saveWidget()` 写快照；`WidgetRefreshPlugin` 触发刷新；30 分钟兜底。
-- 真机：长按桌面 → 小组件 → 三格。
-
-## 已知限制
-
-- 桌面已接同步：普通同步双向 LWW；首次同步默认「课程跟云端，其余跟电脑」。
-- 手机已适配桌面 `cat/note/where` 字段，并已用真实令牌完成桌面与手机双向往返复测。
-- 首次同步现已自动备份并抬高本机时间戳，但真实云端上的首次操作仍应先确认设备数据方向。
-- 已新增首次同步防覆盖和手机同步中继续编辑的自动化测试；后端墓碑回放仍需补独立测试。
-- 桌面课表已进 store，但还没有 HTML 导入；真课表靠首次同步从云端拉。
-- 手机待办、日程、念头已支持编辑与带撤销的删除；课程仍使用独立编辑器。
-- 小组件未真机验证；立即刷新依赖插件。
-- 顶部安全区使用 `max(16px, env(safe-area-inset-top))`，量产前仍需在刘海屏和曲面屏真机复核。
-- 周数锚点写死 `2026-10-26`（第 9 周周一）；换学期要改。
-- 教务系统页面改版会导致导入失败。
-- v1.0 是按编辑记录反向还原的归档，不是原始字节副本；见 `CHANGELOG.md`。
-
-## 同步现状与待修
-
-最小契约：
-- `GET /snapshot`、`POST /snapshot`；单用户 token 鉴权。
-- 每条记录带 `updatedAt` 和 `deleted` 墓碑；按条目 last-write-wins，删除优先。
-- 客户端：本地先写；打开时拉，改动后推；先做手动「同步」按钮，再自动。
-- D1 表：`items(owner, kind, id, payload, updated_at, deleted)`，按 `owner+kind+id` 唯一。
-- 迁移：给手机 store 的 todos/events/courses/thoughts 和桌面 store 的 todo/dated/ideas/done 补 `updatedAt`/`deleted`；桌面加读写包装。
-- 验收：两台设备、离线改、删除/恢复、同一条冲突、初次全量。
-
-### 后端已部署（2026-11-02）
-
-- Pages Function（当前）：模板见 `sync-worker/pages-worker.example.js`，地址形如 `https://YOUR-PROJECT.pages.dev/api/sync`
-- Worker（备用）：模板见 `sync-worker/wrangler.example.toml`
-- D1：`sange-sync`（APAC），表 `items(owner, kind, id, payload, updated_at, deleted)`
-- 源码：`sync-worker/`（`wrangler.toml`、`src/index.js`、`schema.sql`）
-- token：保存在本机私有文件，**不进仓库**。
-  - Pages 端只存 SHA-256 到 D1 `meta.token_sha256`；Worker 端仍是 `SYNC_TOKEN` secret。
-- 接口：`POST /sync`，`Authorization: Bearer <token>`，body `{items:[{kind,id,updatedAt,deleted,payload}]}`，返回合并后全量
-- 合并规则：`ON CONFLICT ... WHERE excluded.updated_at > items.updated_at`，即按条 LWW
-- **已验证**：health、401、LWW、墓碑（curl 走 Clash `127.0.0.1:7897`，需加 `--ssl-no-revoke`）
-- 注意：访问 workers.dev 需要代理；浏览器走系统代理，终端 curl 要手动设 `https_proxy`
-
-### 手机端已接（v1.1+sync）
-
-- 入口：顶部「设置」页 → 只填令牌 → 立即同步；请求 12 秒超时。
-- 接口地址由用户在设置页填写，不再硬编码个人域名。
-- 每条记录带 `updatedAt`；删除写进 `store.deleted` 墓碑，同步成功后清空。
-- 改动后约 1.5 秒防抖自动推；前台约每 10 秒自动拉取，切回页面立即同步；同步期间若本地又改，跳过旧响应并在本轮结束后自动补同步。
-- `thoughts` 从字符串数组迁移为 `{id, text, updatedAt}`，`loadStore()` 里自动转换。
-- 令牌存在 `localStorage`，明文；单机个人使用可接受。
-- 已测：模拟接口的推/拉/墓碑/防抖，以及真实令牌下的桌面、手机双向往返；结果见下方 2026-11-04 验收记录。
-
-### 真实双端验收（2026-11-04）
-
-- 使用真实令牌完成：桌面新增 → 云端 → 手机拉取；手机新增 → 云端 → 桌面拉取。
-- 双向删除墓碑均已传播成功：一端删除后，另一端同步后条目消失。
-- 测试条目使用独立前缀，验收后已全部删除；桌面和手机的待办、日程、念头、课程数量均恢复到测试前。
-- 不输出、不记录令牌内容；验收前两端原始数据已分别备份到本机私有目录。
-- 开启前台自动拉取后再次实测，全程不点同步：电脑→手机约 5.4 秒，手机→电脑约 5.6 秒；双向删除传播约 4.6–6.3 秒。
-- 测试后两端条目计数恢复到测试前，无测试标记残留。
-
-待定：
-1. ~~token 放哪~~ → 已定：本地文件 + 首启输入，不进仓库；
-2. 同步范围（只三格数据，不含课表导入原文件）；
-3. 自动同步触发频率。
-
-## 规矩
-
-- 上传/部署/发链接前先洗数据；线上和仓库里不能有真实待办、念头、健康、课程地点、姓名、账号。
-- 看起来能点的东西必须真的能点。
-- 改没有版本控制的项目前先 `git init` 或备份。
-- GitHub 只在宏说“上传”时推。
+桌面齿轮打开提醒设置：30 分钟、自定义（0 到 10080 分钟）和不提醒；关闭会立即清空桌面提醒并关闭现有提醒窗，选择保存在本设备。应用内不再显示三栏的解释性灰字。README 首屏说明 Windows 安装包已含运行环境，解压后双击启动，并明确普通用户向维护者领取已开通的个人令牌。Windows 便携包已做全新配置的 Electron 启动与原生提醒设置检查。

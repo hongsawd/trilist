@@ -360,13 +360,23 @@
   .sync-actions button{font:inherit;font-size:12px;padding:7px 12px;border-radius:8px;border:1px solid var(--line);background:#fff;cursor:pointer;}
   .sync-actions button.primary{background:var(--ink);color:#fff;border-color:var(--ink);}
   .sync-tip{font-size:11px;color:var(--ink-2);line-height:1.6;margin:10px 0 0;}
+  .settings-dialog{width:min(380px,calc(100vw - 32px));border:1px solid var(--line);border-radius:14px;padding:22px;background:#fff;color:var(--ink);font:inherit;}
+  .settings-dialog::backdrop{background:rgba(20,25,35,.25);}
+  .settings-dialog h2{font-size:17px;margin:0 0 20px;}
+  .settings-dialog label{display:block;font-size:13px;margin-top:14px;}
+  .settings-dialog [hidden]{display:none!important;}
+  .settings-dialog select,.settings-dialog input{display:block;margin-top:7px;width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;background:#fff;font:inherit;}
+  .settings-dialog .actions{display:flex;justify-content:flex-end;gap:8px;margin-top:20px;}
+  .settings-dialog button{font:inherit;min-height:40px;padding:8px 16px;border:1px solid var(--line);border-radius:8px;background:#fff;cursor:pointer;}
+  .settings-dialog .primary{background:var(--ink);color:#fff;border-color:var(--ink);}
+  #reminderError{font-size:12px;color:#b42318;min-height:16px;margin-top:8px;}
 </style>
 </head>
 <body>
 
 <header>
   <div class="bar">
-    <h1>三格</h1><span class="app-version">v1.5</span>
+    <h1>三格</h1><span class="app-version">v1.6</span>
     <div class="tabs">
       <button class="tab on" data-view="board">看板</button>
       <button class="tab" data-view="cal">日历</button>
@@ -378,6 +388,7 @@
     </div>
     <div class="top-tools">
       <button id="syncBtn" title="双端同步">同步<i class="sync-dot" id="syncDot"></i></button>
+      <button id="settingsBtn" title="设置" aria-label="设置" type="button"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="m9 3-1 3-3 1-2 3 2 2-1 3 2 3h3l2 3h3l1-3 3-1 2-3-2-2 1-3-2-3h-3l-2-3Z"/><circle cx="12" cy="12" r="3"/></svg></button>
       <button id="exportBtn" title="导出当前全部数据为 JSON 备份">导出备份</button>
       <button id="importBtn" title="从 JSON 备份恢复">导入</button>
       <input type="file" id="importFile" accept=".json,application/json" hidden>
@@ -391,31 +402,30 @@
     <div class="stat cool"><b id="s-week">0</b><span>一周内</span></div>
     <div class="stat"><b id="s-idea">0</b><span>念头</span></div>
     <div class="stat did"><b id="s-done">0</b><span>已完成</span></div>
-    <div class="hint">还没决定动作的进念头；现在能动手的进待办；有明确时间、需要到点发生的事件进日程。</div>
   </div>
 </header>
 
 <main id="view-board">
   <section>
     <div class="sec-head"><span class="dot d-todo"></span><span class="t">待办</span>
-      <span class="n" id="n-todo"></span><span class="tag">现在能动手</span></div>
+      <span class="n" id="n-todo"></span></div>
     <div id="list-todo"></div>
     <div class="donebox" id="donebox-todo">
       <div class="sec-head"><span class="dot d-done"></span><span class="t">已完成</span>
-        <span class="n" id="done-sum-todo"></span><span class="tag">划掉了，但留着</span></div>
+        <span class="n" id="done-sum-todo"></span></div>
       <div id="list-done-todo"></div>
     </div>
   </section>
 
   <section>
     <div class="sec-head"><span class="dot d-dated"></span><span class="t">日程</span>
-      <span class="n" id="n-dated"></span><span class="tag">等它发生</span></div>
+      <span class="n" id="n-dated"></span></div>
     <div id="list-dated"></div>
   </section>
 
   <section>
     <div class="sec-head"><span class="dot d-idea"></span><span class="t">念头</span>
-      <span class="n" id="n-ideas"></span><span class="tag">不催，需要时再转待办</span></div>
+      <span class="n" id="n-ideas"></span></div>
     <div class="idea-spotlight" id="ideaSpotlight" hidden aria-live="polite">
       <div class="spot-card">
         <div class="spot-top"><button class="spot-all" type="button" id="ideaSpotClose">全部 <b id="ideaSpotCount">0</b> 条 ›</button></div>
@@ -544,13 +554,22 @@
     <div class="sync-status" id="syncStatus">还没有同步过</div>
     <div class="sync-actions">
       <button id="syncRun" class="primary" type="button">立即同步</button>
-      <button id="syncFirst" type="button">首次同步（课程跟云端，其余跟电脑）</button>
+      <button id="syncFirst" type="button">以电脑替换云端清单（课程保留）</button>
       <button id="syncClose" type="button">关闭</button>
     </div>
-    <p class="sync-tip">前台约每 12 秒检查一次云端，切回窗口会立即同步；首次同步只在第一次用。</p>
+    <p class="sync-tip">前台每 2 秒检查一次云端，切回窗口会立即同步；首次连接会备份并合并两端数据，不删除云端清单。</p>
   </div>
 </div>
 
+<dialog class="settings-dialog" id="settingsDialog" aria-labelledby="settingsTitle">
+  <h2 id="settingsTitle">设置</h2>
+  <label>桌面提醒<select id="reminderMode"><option value="30">提前 30 分钟</option><option value="custom">自定义</option><option value="off">不提醒</option></select></label>
+  <label id="reminderCustomWrap" hidden>提前多少分钟<input type="number" id="reminderCustom" min="0" max="10080" step="1" inputmode="numeric" value="30"></label>
+  <div id="reminderError" role="alert"></div>
+  <div class="actions"><button type="button" id="settingsCancel">取消</button><button type="button" id="settingsSave" class="primary">保存</button></div>
+</dialog>
+<script src="shared/service-config.js"></script>
+<script src="shared/sange-core.js"></script>
 <script>
 window.onerror = function(m,s,l,c){ document.title = "ERR @"+l+":"+c+" "+m; };
 (function(){
@@ -595,7 +614,7 @@ window.onerror = function(m,s,l,c){ document.title = "ERR @"+l+":"+c+" "+m; };
       {id:"t1", text:"写周报", cat:"academic"},
       {id:"t2", text:"示例待办 A", cat:"academic"},
       {id:"t3", text:"示例待办 B（10 分钟就够）", cat:"action"},
-      {id:"d3", text:"示例待办 C（带截止日期）", date:"2026-11-01", time:"23:59", cat:"academic", note:"11.1 前交"}
+      {id:"d3", text:"示例待办 C（带截止日期）", date:"2026-11-01", time:"23:59", cat:"academic", note:"示例截止说明"}
     ],
     dated:[
       {id:"d1", text:"示例日程 A", date:"2026-10-30", time:"12:00", where:"会议室", cat:"urgent", note:"示例备注"},
@@ -613,7 +632,7 @@ window.onerror = function(m,s,l,c){ document.title = "ERR @"+l+":"+c+" "+m; };
     done:[]
   };
 
-  const freshStore = () => normalizeStore(JSON.parse(JSON.stringify(DEFAULT)));
+  const freshStore = () => normalizeStore(new URLSearchParams(location.search).has("demo") ? {...JSON.parse(JSON.stringify(DEFAULT)),courses:COURSES.map(legacyCourse)} : {todo:[],dated:[],ideas:[],done:[],courses:[]});
   const looksLikeStore = s => !!s && typeof s === "object"
     && Array.isArray(s.todo) && Array.isArray(s.dated) && Array.isArray(s.ideas);
 
@@ -623,21 +642,22 @@ window.onerror = function(m,s,l,c){ document.title = "ERR @"+l+":"+c+" "+m; };
       weeks: Array.from({length:18},(_,i)=>i+1),
       name:c.name, place:c.where, teacher:"", classNo:"",
       color: String(c.color||"").replace(/^c-/,"") || "green",
-      updatedAt: Date.now()
+      updatedAt: SangeCore.tick()
     };
   }
-  function stamp(list){ (list||[]).forEach(x => { if (!x.updatedAt) x.updatedAt = Date.now(); }); return list; }
+  function stamp(list){ (list||[]).forEach(x => { if (!x.updatedAt) x.updatedAt = SangeCore.tick(); SangeCore.observe(x.updatedAt); }); return list; }
 
   function normalizeStore(s){
     if (!looksLikeStore(s)) return freshStore();
     const out = {
       todo:s.todo, dated:s.dated, ideas:s.ideas,
       done:Array.isArray(s.done)?s.done:[],
-      courses:Array.isArray(s.courses)?s.courses:COURSES.map(legacyCourse),
+      courses:Array.isArray(s.courses)?s.courses:[],
       places:Array.isArray(s.places)?s.places:[],
       mig3:!!s.mig3, mig4:!!s.mig4, mig5:!!s.mig5, schema:5,
       deleted:Array.isArray(s.deleted)?s.deleted:[],
-      sync:(s.sync && typeof s.sync === "object") ? s.sync : {token:"", lastSync:0}
+      sync:Object.assign({token:"",lastSync:0,url:globalThis.SANGE_SERVICE_URL || ""}, s.sync || {}),
+      settings:{reminderMinutes:s.settings?.reminderMinutes === null ? null : Number.isInteger(s.settings?.reminderMinutes) && s.settings.reminderMinutes>=0 && s.settings.reminderMinutes<=10080 ? s.settings.reminderMinutes : 30}
     };
     ["todo","dated","ideas","done","courses"].forEach(k => stamp(out[k]));
     return out;
@@ -702,6 +722,8 @@ window.onerror = function(m,s,l,c){ document.title = "ERR @"+l+":"+c+" "+m; };
   let syncing = false, syncTimer = null, applyingSync = false;
   let storeRev = 0, syncPending = false;
   let syncBackoffUntil = 0;
+  const syncLedger = SangeCore.ledger();
+  let syncFailures = 0;
   try { store = normalizeStore(JSON.parse(localStorage.getItem(KEY))); }
   catch(e){ store = freshStore(); }
   const migrated = migrateStore(store);
@@ -817,10 +839,10 @@ window.onerror = function(m,s,l,c){ document.title = "ERR @"+l+":"+c+" "+m; };
     store.places = store.places.slice(0,30);
   }
 
-  function touch(it){ if (it) it.updatedAt = Date.now(); return it; }
+  function touch(it){ if (it) it.updatedAt = SangeCore.tick(); return it; }
   function tombstone(kind, id){
     store.deleted = (store.deleted || []).filter(d => !(d.kind === kind && d.id === id));
-    store.deleted.push({ kind, id, updatedAt: Date.now() });
+    store.deleted.push({ kind, id, updatedAt: SangeCore.tick() });
   }
   function clearTombstone(kind, id){
     store.deleted = (store.deleted || []).filter(d => !(d.kind === kind && d.id === id));
@@ -835,7 +857,7 @@ window.onerror = function(m,s,l,c){ document.title = "ERR @"+l+":"+c+" "+m; };
     if (kind === "ideas") tombstone("thought", it.id);
     const done = { id: it.id, text: it.text, from: kind, cat: it.cat||"action",
                    date: it.date||"", time: it.time||"", where: it.where||"",
-                   note: it.note||"", doneAt: nowStr(), updatedAt: Date.now() };
+                   note: it.note||"", doneAt: nowStr(), updatedAt: SangeCore.tick() };
     store.done.unshift(done);
     save(); render();
     showUndo("已完成："+it.text, () => restore(done.id));
@@ -845,7 +867,7 @@ window.onerror = function(m,s,l,c){ document.title = "ERR @"+l+":"+c+" "+m; };
     if (i < 0) return;
     const it = store.done.splice(i,1)[0];
     const target = (it.from==="dated" || it.from==="todo" || it.from==="ideas") ? it.from : "todo";
-    const back = { id: it.id, text: it.text, cat: it.cat, updatedAt: Date.now() };
+    const back = { id: it.id, text: it.text, cat: it.cat, updatedAt: SangeCore.tick() };
     if (it.date) { back.date = it.date; back.time = it.time; }
     if (it.where) back.where = it.where;
     if (it.note) back.note = it.note;
@@ -866,7 +888,7 @@ window.onerror = function(m,s,l,c){ document.title = "ERR @"+l+":"+c+" "+m; };
     save(); render();
     showUndo("已删除："+removed.text, () => {
       if (!list.some(x => x.id === removed.id)) {
-        removed.updatedAt = Date.now();
+        removed.updatedAt = SangeCore.tick();
         list.splice(Math.min(index,list.length),0,removed);
         clearTombstone(sk, removed.id);
         save(); render();
@@ -881,7 +903,7 @@ window.onerror = function(m,s,l,c){ document.title = "ERR @"+l+":"+c+" "+m; };
     tombstone("todo", removed.id);
     save(); render();
     showUndo("已删除完成记录："+removed.text, () => {
-      removed.updatedAt = Date.now();
+      removed.updatedAt = SangeCore.tick();
       store.done.splice(Math.min(index,store.done.length),0,removed);
       clearTombstone("todo", removed.id);
       save(); render();
@@ -958,7 +980,7 @@ window.onerror = function(m,s,l,c){ document.title = "ERR @"+l+":"+c+" "+m; };
       if (memo) item.note = memo; else delete item.note;
     }
     inlineEdit = null;
-    item.updatedAt = Date.now();
+    item.updatedAt = SangeCore.tick();
     save(); render();
     note.textContent = "已保存修改。";
     note.className = "note";
@@ -1023,17 +1045,7 @@ window.onerror = function(m,s,l,c){ document.title = "ERR @"+l+":"+c+" "+m; };
     };
   }
 
-  function sortedTodos(){
-    return store.todo.slice().sort((a,b) => {
-      const ai = (CATS[a.cat] || CATS.action).imp;
-      const bi = (CATS[b.cat] || CATS.action).imp;
-      if (bi !== ai) return bi-ai;
-      if (a.date && b.date) return (a.date+(a.time||"")).localeCompare(b.date+(b.time||""));
-      if (a.date) return -1;
-      if (b.date) return 1;
-      return 0;
-    });
-  }
+  function sortedTodos(){ return store.todo.slice().sort(SangeCore.compareTodos); }
 
   function renderTodo(){
     const box = el("list-todo"); box.innerHTML="";
@@ -1069,7 +1081,7 @@ window.onerror = function(m,s,l,c){ document.title = "ERR @"+l+":"+c+" "+m; };
     const lb = el("list-done-todo"); lb.innerHTML = "";
     dt.forEach(it => {
       const c = card('<div class="body"><div class="text struck">'+esc(it.text)+'</div>'+
-        '<div class="meta"><span class="chip okc">'+it.doneAt+'</span>'+
+        '<div class="meta"><span class="chip okc">'+esc(it.doneAt || new Date(it.updatedAt).toLocaleString("zh-CN",{hour12:false}))+'</span>'+
         (it.date? '<span class="chip dim">原定 '+shortDate(it.date)+'</span>':'')+
         '</div><div class="row-actions"><button class="act" data-r>撤销</button>'+
         '<button class="act danger" data-x>删除记录</button></div></div>');
@@ -1165,13 +1177,13 @@ window.onerror = function(m,s,l,c){ document.title = "ERR @"+l+":"+c+" "+m; };
   function moveIdeaToTodo(item){
     store.ideas = store.ideas.filter(x => x.id !== item.id);
     tombstone("thought", item.id);
-    store.todo.push({id:"t"+Date.now(), text:item.text, cat:"action", updatedAt:Date.now()});
+    store.todo.push({id:"t"+Date.now(), text:item.text, cat:"action", updatedAt:SangeCore.tick()});
     save(); render();
   }
   function dropIdea(item){
     store.ideas = store.ideas.filter(x => x.id !== item.id);
     tombstone("thought", item.id);
-    const dropped = {id:item.id, text:item.text, from:"ideas", cat:"", doneAt:nowStr()+" 搁下", updatedAt:Date.now()};
+    const dropped = {id:item.id, text:item.text, from:"ideas", cat:"", doneAt:nowStr()+" 搁下", updatedAt:SangeCore.tick()};
     store.done.unshift(dropped);
     save(); render();
     showUndo("已搁下："+item.text, () => restore(dropped.id));
@@ -1396,22 +1408,24 @@ window.onerror = function(m,s,l,c){ document.title = "ERR @"+l+":"+c+" "+m; };
   }
   async function syncReminderDaemon(){
     try {
+      const minutes=store.settings.reminderMinutes;
+      const items=minutes === null ? [] : reminderItems().map(item=>({...item,remindBefore:minutes}));
       if (window.sanGeDesktop?.syncReminders) {
-        const result = await window.sanGeDesktop.syncReminders(reminderItems());
+        const result = await window.sanGeDesktop.syncReminders(items);
         if (!result?.ok) throw new Error("offline");
         const state = el("daemonState");
-        state.textContent = "桌面提醒：已连接 · Ctrl+Alt+Q 看近期";
+        state.textContent = minutes === null ? "桌面提醒：已关闭" : "桌面提醒："+(minutes===0?"到点提醒":"提前 "+minutes+" 分钟");
         state.classList.add("on");
         return;
       }
       const response = await fetch(REMINDER_ENDPOINT+"/sync", {
         method:"POST",
         headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({items:reminderItems()})
+        body:JSON.stringify({items})
       });
       if (!response.ok) throw new Error("offline");
       const state = el("daemonState");
-      state.textContent = "提醒进程：已连接，提前 30 分钟提醒";
+      state.textContent = minutes === null ? "提醒进程：已关闭" : "提醒进程：提前 "+minutes+" 分钟提醒";
       state.classList.add("on");
     } catch(e) {
       const state = el("daemonState");
@@ -1515,7 +1529,7 @@ window.onerror = function(m,s,l,c){ document.title = "ERR @"+l+":"+c+" "+m; };
         box.appendChild(c);
       } else {
         const c = card('<div class="body"><div class="text struck">'+esc(it.text)+'</div>'+
-          '<div class="meta"><span class="chip okc">完成于 '+it.doneAt+'</span>'+
+          '<div class="meta"><span class="chip okc">完成于 '+esc(it.doneAt || new Date(it.updatedAt).toLocaleString("zh-CN",{hour12:false}))+'</span>'+
           '</div><div class="row-actions"><button class="act" data-r>撤销</button>'+
           '<button class="act danger" data-x>删除记录</button></div></div>');
         c.dataset.id = it.id;
@@ -1715,6 +1729,7 @@ window.onerror = function(m,s,l,c){ document.title = "ERR @"+l+":"+c+" "+m; };
     setView(VIEW_ORDER[(index+(e.deltaX>0?1:-1)+VIEW_ORDER.length)%VIEW_ORDER.length]);
   }, {passive:true});
   document.addEventListener("keydown", e => {
+    if (el("settingsDialog").open) return;
     if (peekOnly && e.key === "Escape") {
       e.preventDefault();
       if (window.sanGeDesktop?.closeQuick) window.sanGeDesktop.closeQuick();
@@ -1773,7 +1788,7 @@ window.onerror = function(m,s,l,c){ document.title = "ERR @"+l+":"+c+" "+m; };
   });
 
   // ---------- 双端同步 ----------
-  const syncEndpoint = () => String((store.sync && store.sync.url) || "").trim();
+  function syncEndpoint(){ return String((store.sync && store.sync.url) || "").trim(); }
 
   function setSyncStatus(msg, cls){
     const box = el("syncStatus");
@@ -1794,7 +1809,7 @@ window.onerror = function(m,s,l,c){ document.title = "ERR @"+l+":"+c+" "+m; };
       if (syncing){ syncPending = true; return; }
       syncPending = false;
       runSync("normal", true);
-    }, 1500);
+    }, 350);
   }
 
   function pollSync(){
@@ -1810,7 +1825,7 @@ window.onerror = function(m,s,l,c){ document.title = "ERR @"+l+":"+c+" "+m; };
                name:x.name, place:x.place || x.where || "", teacher:x.teacher || "",
                classNo:x.classNo || "", color:x.color || "green" };
     }
-    return x;
+    return kind === "todo" ? SangeCore.todo(x,"desktop") : kind === "event" ? SangeCore.event(x,"desktop") : x;
   }
 
   function collectItems(){
@@ -1820,7 +1835,8 @@ window.onerror = function(m,s,l,c){ document.title = "ERR @"+l+":"+c+" "+m; };
       payload: Object.assign(toPayload(kind, x), extra || {})
     }));
     put("todo", store.todo, {done:false});
-    put("todo", store.done.filter(x => x.from !== "ideas"), {done:true});
+    put("todo", store.done.filter(x => x.from !== "ideas" && x.from !== "dated"), {done:true});
+    put("event", store.done.filter(x => x.from === "dated"), {done:true});
     put("event", store.dated);
     put("thought", store.ideas);
     put("course", store.courses);
@@ -1831,7 +1847,7 @@ window.onerror = function(m,s,l,c){ document.title = "ERR @"+l+":"+c+" "+m; };
   }
 
   function normalizeTodoPayload(p){
-    const out = {...p};
+    const out = SangeCore.todo(p);
     if (!out.cat && out.tag) out.cat = /紧急/.test(out.tag) ? "urgent" :
       /学业|课业/.test(out.tag) ? "academic" : /信息|通知/.test(out.tag) ? "info" : "action";
     if (!out.note && out.meta) out.note = out.meta;
@@ -1839,7 +1855,7 @@ window.onerror = function(m,s,l,c){ document.title = "ERR @"+l+":"+c+" "+m; };
     return out;
   }
   function normalizeEventPayload(p){
-    const out = {...p};
+    const out = SangeCore.event(p);
     if (!out.where && out.place) out.where = out.place;
     if (!out.cat) out.cat = "info";
     return out;
@@ -1867,12 +1883,13 @@ window.onerror = function(m,s,l,c){ document.title = "ERR @"+l+":"+c+" "+m; };
     const dropped = (store.done||[]).filter(x => x.from === "ideas");
     store.done = b.todo.filter(x => x.done).map(x => {
       const {done, ...rest} = x;
-      return {...rest, updatedAt:x.updatedAt};
+      return {...rest, from:"todo", updatedAt:x.updatedAt};
     }).concat(dropped);
-    store.dated = b.event.map(normalizeEventPayload);
+    store.dated = b.event.filter(x=>!x.done).map(normalizeEventPayload);
+    store.done.push(...b.event.filter(x=>x.done).map(x=>({...x,from:"dated"})));
     store.ideas = b.thought.map(x => ({...x, text:x.text || ""}));
     store.courses = b.course.map(normalizeCoursePayload);
-    store.deleted = [];
+    store.deleted = items.filter(x => x.deleted).map(({kind,id,updatedAt}) => ({kind,id,updatedAt}));
     applyingSync = true;
     save();
     applyingSync = false;
@@ -1892,6 +1909,7 @@ window.onerror = function(m,s,l,c){ document.title = "ERR @"+l+":"+c+" "+m; };
       const data = await res.json().catch(() => ({}));
       if (res.status === 401) throw new Error("令牌不对，检查是否复制完整");
       if (!res.ok) throw new Error(data.error || ("HTTP " + res.status));
+      SangeCore.snapshot(data);
       return data;
     } finally {
       clearTimeout(timer);
@@ -1899,32 +1917,35 @@ window.onerror = function(m,s,l,c){ document.title = "ERR @"+l+":"+c+" "+m; };
   }
 
   async function runSync(mode="normal", silent=false){
-    const endpointInput = el("syncEndpoint");
-    const typedEndpoint = endpointInput ? endpointInput.value.trim() : "";
-    if (typedEndpoint && typedEndpoint !== store.sync.url){
-      store.sync.url = typedEndpoint;
-      applyingSync = true; save(); applyingSync = false;
-    }
-    const input = el("syncToken");
-    const typed = input ? input.value.trim() : "";
-    if (typed && typed !== store.sync.token){
-      store.sync.token = typed;
-      applyingSync = true; save(); applyingSync = false;
+    if (!silent){
+      const endpointInput=document.querySelector("#syncEndpoint");
+      const tokenInput=document.querySelector("#syncToken");
+      const url=(endpointInput?.value || store.sync.url || globalThis.SANGE_SERVICE_URL || "").trim();
+      const token=(tokenInput?.value || store.sync.token || "").trim();
+      const changed=url!==store.sync.url || token!==store.sync.token;
+      if (changed && store.sync.token && store.sync.lastSync){
+        if (!confirm("更换同步配置会切换数据空间。当前清单将先保存在本机备份，随后读取新令牌的数据。继续？")) { setSyncStatus("已取消切换令牌"); return; }
+        localStorage.setItem("sange.account.backup."+Date.now(),JSON.stringify(store));
+        ["todo","dated","ideas","done","courses","deleted"].forEach(k=>store[k]=[]);
+        store.sync.lastSync=0;
+      }
+      if (changed){
+        store.sync.url=url; store.sync.token=token;
+        applyingSync=true; save(); applyingSync=false;
+      }
     }
     if (!store.sync.token || !syncEndpoint()){
       openSyncPanel();
       setSyncStatus(!syncEndpoint() ? "先填服务地址，再填令牌" : "先在下面填令牌", "err");
       return;
     }
-    if (mode === "normal" && !store.sync.lastSync){
-      openSyncPanel();
-      setSyncStatus("首次使用请点「首次同步」", "err");
-      return;
-    }
+
     if (syncing){ setSyncStatus("正在同步…"); return; }
     syncPending = false;
     syncing = true;
     setSyncStatus("同步中…");
+    const identity = syncEndpoint()+"|"+store.sync.token;
+    syncLedger.use(identity);
     let revAtStart = storeRev;
     let retryAfter = false;
     try {
@@ -1933,7 +1954,7 @@ window.onerror = function(m,s,l,c){ document.title = "ERR @"+l+":"+c+" "+m; };
         const snap = await apiSync([]);
         const server = snap.items || [];
         const courseCount = server.filter(i => i.kind === "course" && !i.deleted).length;
-        if (!courseCount) throw new Error("云端没有课程，先让手机同步一次");
+
         try {
           localStorage.setItem("triage.presync.backup", JSON.stringify({
             createdAt:new Date().toISOString(),
@@ -1963,27 +1984,38 @@ window.onerror = function(m,s,l,c){ document.title = "ERR @"+l+":"+c+" "+m; };
         const push = collectItems().filter(i => i.kind !== "course");
         final = await apiSync([...push, ...dels]);
       } else {
-        final = await apiSync(collectItems());
+        let outgoing = syncLedger.pending(collectItems());
+        if (!store.sync.lastSync){
+          localStorage.setItem("triage.presync.backup", JSON.stringify(store));
+          const cloud = SangeCore.snapshot(await apiSync([]));
+          outgoing = SangeCore.firstMerge(collectItems(), cloud);
+          applySnapshot(outgoing);
+          revAtStart=storeRev;
+        }
+        final = await apiSync(outgoing);
       }
+      if (identity !== syncEndpoint()+"|"+store.sync.token) throw new Error("同步配置已更换，旧请求已忽略");
+      syncLedger.acknowledge(final.items);
       if (storeRev !== revAtStart){
         retryAfter = true;
         setSyncStatus("同步期间有新改动，稍后自动补一轮");
       } else {
-        applySnapshot(final.items || []);
+        const merged = SangeCore.merge(store.sync.lastSync ? collectItems() : [], final.items);
+        if (!SangeCore.equal(collectItems(), merged)) applySnapshot(merged);
         store.sync.lastSync = Date.now();
-        syncBackoffUntil = 0;
+        syncBackoffUntil = 0; syncFailures = 0;
         applyingSync = true; save(); applyingSync = false;
         setSyncStatus("已同步 · " + new Date().toLocaleTimeString("zh-CN", {hour:"2-digit",minute:"2-digit"}), "ok");
       }
     } catch(e){
-      syncBackoffUntil = Date.now() + 30_000;
+      syncBackoffUntil = Date.now() + Math.min(30_000, 3_000 * 2 ** Math.min(syncFailures++, 4));
       const raw = String((e && e.message) || e);
       const msg = /Failed to fetch|NetworkError|Load failed/i.test(raw) ? "网络不通"
         : (e && e.name === "AbortError") ? "连接超时" : raw;
       setSyncStatus("同步失败：" + msg, "err");
     } finally {
       syncing = false;
-      if (retryAfter){
+      if (retryAfter || (syncPending && Date.now() >= syncBackoffUntil)){
         syncPending = false;
         setTimeout(scheduleSync, 400);
       }
@@ -1995,6 +2027,7 @@ window.onerror = function(m,s,l,c){ document.title = "ERR @"+l+":"+c+" "+m; };
     if (!p) return;
     const input = el("syncToken");
     const endpoint = el("syncEndpoint");
+    if (endpoint) endpoint.closest("label").hidden = !!globalThis.SANGE_SERVICE_URL;
     if (endpoint && !endpoint.value) endpoint.value = store.sync.url || "";
     if (input && !input.value) input.value = store.sync.token || "";
     setSyncStatus(store.sync.lastSync
@@ -2174,7 +2207,7 @@ window.onerror = function(m,s,l,c){ document.title = "ERR @"+l+":"+c+" "+m; };
       if (el("blockEndTime").value) timing.endTime = el("blockEndTime").value;
     }
     const place = p.where ? {where:p.where} : {};
-    const updatedAt = Date.now();
+    const updatedAt = SangeCore.tick();
     if (kind === "dated") {
       store.dated.push({id, text:p.text, ...timing, ...place, note:"", cat:p.cat||"action", updatedAt});
     } else if (kind === "ideas") {
@@ -2286,6 +2319,7 @@ window.onerror = function(m,s,l,c){ document.title = "ERR @"+l+":"+c+" "+m; };
   });
   document.addEventListener("keydown", e => {
     const dateShortcut = e.ctrlKey && (e.code === "Semicolon" || e.key === ";" || e.key === "；");
+    if (el("settingsDialog").open) return;
     if (!dateShortcut) return;
     e.preventDefault();
     openDateTimePlace();
@@ -2333,11 +2367,38 @@ window.onerror = function(m,s,l,c){ document.title = "ERR @"+l+":"+c+" "+m; };
   };
 
   el("syncBtn").onclick = openSyncPanel;
+  el("settingsBtn").onclick = () => {
+    const minutes=store.settings.reminderMinutes;
+    el("reminderMode").value=minutes===null?"off":minutes===30?"30":"custom";
+    el("reminderCustom").value=minutes??30;
+    el("reminderCustomWrap").hidden=el("reminderMode").value!=="custom";
+    el("reminderError").textContent="";
+    el("settingsDialog").showModal();
+  };
+  el("reminderMode").onchange = () => {
+    el("reminderCustomWrap").hidden=el("reminderMode").value!=="custom";
+    el("reminderError").textContent="";
+    if (!el("reminderCustomWrap").hidden) el("reminderCustom").focus();
+  };
+  el("settingsCancel").onclick = () => el("settingsDialog").close();
+  el("settingsSave").onclick = () => {
+    const mode=el("reminderMode").value;
+    const raw=el("reminderCustom").value.trim();
+    const minutes=mode==="off"?null:mode==="30"?30:Number(raw);
+    if (mode==="custom" && (!raw || !Number.isInteger(minutes) || minutes<0 || minutes>10080)){
+      el("reminderError").textContent="请输入 0–10080 之间的整数分钟；0 表示到点提醒。";
+      el("reminderCustom").focus(); return;
+    }
+    store.settings.reminderMinutes=minutes;
+    applyingSync=true; save(); applyingSync=false;
+    syncReminderDaemon();
+    el("settingsDialog").close();
+  };
   el("syncClose").onclick = () => { el("syncModal").hidden = true; };
   el("syncModal").onclick = e => { if (e.target === el("syncModal")) el("syncModal").hidden = true; };
   el("syncRun").onclick = () => runSync("normal");
   el("syncFirst").onclick = () => {
-    if (confirm("首次同步会：\n\n· 课程从云端拉到电脑\n· 待办 / 日程 / 念头以本机为准覆盖云端\n\n继续？")) runSync("first");
+    if (confirm("首次同步会：\n\n· 课程从云端拉到电脑\n· 待办 / 日程 / 念头以本机为准，删除云端其余清单（此操作会影响另一台设备）\n\n继续？")) runSync("first");
   };
 
   // 页面可能整夜开着：跨过零点后重算剩余天数和“今天”。
@@ -2356,7 +2417,7 @@ window.onerror = function(m,s,l,c){ document.title = "ERR @"+l+":"+c+" "+m; };
   render();
   if (!peekOnly) presentDailyIdea();
   if (!peekOnly && store.sync.token && store.sync.lastSync) setTimeout(() => runSync("normal", true), 1500);
-  setInterval(pollSync, 12_000);
+  setInterval(pollSync, 2_000);
   window.addEventListener("focus", pollSync);
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") pollSync(); });
   syncReminderDaemon();

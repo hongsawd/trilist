@@ -1,0 +1,11 @@
+const assert=require('node:assert/strict');
+const {isDue,leadMinutes}=require('./desktop/reminder-rules');
+const start=Date.parse('2027-01-01T12:00:00Z');
+assert.equal(isDue({startAt:new Date(start).toISOString()},start-30*60000),true);
+assert.equal(isDue({startAt:new Date(start).toISOString(),remindBefore:7},start-8*60000),false);
+assert.equal(isDue({startAt:new Date(start).toISOString(),remindBefore:7},start-7*60000),true);
+assert.equal(isDue({startAt:new Date(start).toISOString(),remindBefore:null},start),false);
+assert.equal(isDue({startAt:new Date(start).toISOString(),remindBefore:0},start-1),false);
+assert.equal(isDue({startAt:new Date(start).toISOString(),remindBefore:0},start),true);
+assert.equal(leadMinutes(-1),30);
+console.log('ok: default, custom, disabled and exact-time reminder rules');

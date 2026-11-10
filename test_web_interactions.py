@@ -95,7 +95,7 @@ def main():
             [
                 str(edge), "--headless=new", "--disable-gpu", "--no-first-run",
                 f"--remote-debugging-port={port}", f"--user-data-dir={tmp}",
-                PAGE.as_uri(),
+                (PAGE.as_uri() + "?demo=1"),
             ],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,

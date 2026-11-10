@@ -1,2 +1,2 @@
 @echo off
-start "" pythonw "%~dp0triage.pyw"
+wscript.exe "%~dp0启动三格.vbs"

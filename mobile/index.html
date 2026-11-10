@@ -80,7 +80,7 @@
   /* 两栏 */
   .cols{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;align-items:start;}
   .col{padding:10px 10px 8px;min-width:0;min-height:0;display:flex;flex-direction:column;}
-  #todoList,#eventList{width:100%;max-height:min(48vh,420px);overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;padding-right:1px;}
+  #todoList,#eventList{width:100%;height:clamp(240px,48dvh,440px);overflow-y:scroll;overscroll-behavior-y:contain;touch-action:pan-y pinch-zoom;scrollbar-width:thin;scrollbar-gutter:stable;padding-right:1px;}
   .col-head{display:flex;align-items:center;gap:5px;padding:0 1px 8px;margin-bottom:2px;border-bottom:1px solid var(--line);}
   .col-head .t{font-size:12.5px;font-weight:700;}
   .col-head .n{font-size:9.5px;color:var(--ink3);background:#f1f2f4;border-radius:10px;padding:1px 6px;
@@ -131,9 +131,9 @@
   .seg{display:flex;gap:2px;background:#eef0f3;border:1px solid var(--line);border-radius:9px;padding:2px;flex:0 1 auto;}
   .seg-btn{min-height:40px;border:0;background:transparent;font:inherit;font-size:10.5px;color:var(--ink3);padding:5px 7px;border-radius:7px;cursor:pointer;white-space:nowrap;}
   .seg-btn.on{background:#fff;color:var(--ink);font-weight:600;box-shadow:0 1px 2px rgba(20,25,35,.08);}
-  .page-stage{overflow:hidden;transition:height .24s cubic-bezier(.2,.8,.2,1);}
+  .page-stage{overflow:hidden;touch-action:pan-y pinch-zoom;}
   .page-track{display:flex;align-items:flex-start;will-change:transform;}
-  #page1,#page2,#page3{flex:0 0 100%;min-width:0;touch-action:pan-y;}
+  #page1,#page2,#page3{flex:0 0 100%;min-width:0;touch-action:pan-y pinch-zoom;}
   .page-track>[hidden]{display:block!important;}
 
   /* 念头浮签 */
@@ -186,7 +186,7 @@
     font-size:11px;font-weight:600;color:var(--ink2);font-variant-numeric:tabular-nums;}
   .tt-day.today{color:var(--ink);font-weight:700;}
   .tt-day.today b{background:var(--ink);color:#fff;}
-  .tt-viewport{position:relative;overflow:hidden;background:#fff;touch-action:pan-y;}
+  .tt-viewport{position:relative;overflow:hidden;background:#fff;touch-action:pan-y pinch-zoom;}
   .tt-grid{display:grid;grid-template-columns:30px repeat(7,1fr);grid-auto-rows:40px;position:relative;background:#fff;
     background-image:repeating-linear-gradient(to bottom,transparent 0 39px,rgba(28,34,48,.045) 39px 40px);will-change:transform;}
   .tt-ghost{position:absolute;inset:0;z-index:2;pointer-events:none;background:#fff;}
@@ -389,7 +389,7 @@
       <button class="mini sync-token-toggle" id="syncTokenToggle" type="button">填写令牌</button>
       <div class="sync-status" id="syncStatus">还没有同步过</div>
       <button class="submit sync-submit" id="syncNowBtn" type="button"><span class="spinner hidden" id="syncSpin"></span><span id="syncBtnLabel">立即同步</span></button>
-      <p class="sync-hint">改动后约 1.5 秒上传，前台约每 10 秒检查云端；切回页面会立即同步。</p>
+      <p class="sync-hint">改动后约 0.35 秒发起上传，前台每 2 秒检查云端；只上传变化的记录；切回页面会立即同步。</p>
     </section>
   </div>
   </div>
@@ -500,11 +500,13 @@
   </div>
 </div>
 
+<script src="../shared/service-config.js"></script>
+<script src="../shared/sange-core.js"></script>
 <script>
 (function(){
   const $ = s => document.querySelector(s);
   const STORE_KEY = "sange.mobile.v1";
-  const APP_VERSION = "1.14";
+  const APP_VERSION = "1.15";
   const state = { type:"thought" };
   let page = 1;
   let currentThought = null;
@@ -588,7 +590,7 @@
     ];
   }
 
-  function now(){ return Date.now(); }
+  function now(){ return SangeCore.tick(); }
 
   function normalizeStore(data){
     const stamp = x => { if (!x.id) x.id = uid(); if (!x.updatedAt) x.updatedAt = now(); return x; };
@@ -642,11 +644,13 @@
         }
       }
     } catch(e){}
-    const seed = seedStore();
+    const seed = new URLSearchParams(location.search).has("demo") ? seedStore() : normalizeStore({todos:[],events:[],thoughts:[],courses:[]});
     try { localStorage.setItem(STORE_KEY, JSON.stringify(seed)); } catch(e){}
     return seed;
   }
   const store = loadStore();
+  store.sync.url = store.sync.url || globalThis.SANGE_SERVICE_URL || "";
+  [...store.todos,...store.events,...store.thoughts,...store.courses,...store.deleted].forEach(x=>SangeCore.observe(x.updatedAt));
   let storeRev = 0;
   let applyingSync = false;
   function save(){
@@ -669,7 +673,7 @@
       date: TODAY,
       weekday: WEEKDAY,
       courses: coursesOn(TODAY).slice(0,4).map(c => ({ time:c.time, text:c.text, place:c.place })),
-      todos: store.todos.filter(t => !t.done).slice(0,4).map(t => ({ text:t.text, meta:t.meta })),
+      todos: store.todos.filter(t => !t.done).sort(SangeCore.compareTodos).slice(0,4).map(t => ({ text:t.text, meta:t.meta })),
       updated: new Date().toISOString()
     };
   }
@@ -689,6 +693,8 @@
   const syncConfigured = () => !!(store.sync && store.sync.token && store.sync.url);
   let syncing = false, syncTimer = null, syncPending = false;
   let syncBackoffUntil = 0;
+  const syncLedger = SangeCore.ledger();
+  let syncFailures = 0;
 
   function setSyncStatus(msg, cls){
     const el = $("#syncStatus");
@@ -718,6 +724,7 @@
   function renderSyncPage(){
     const hasToken = syncConfigured();
     $("#syncEndpoint").value = (store.sync && store.sync.url) || "";
+    $("#syncEndpoint").closest("label").hidden = !!globalThis.SANGE_SERVICE_URL;
     $("#syncToken").value = "";
     $("#syncTokenBox").classList.toggle("hidden", hasToken);
     $("#syncTokenToggle").textContent = hasToken ? "更换令牌" : "填写令牌";
@@ -739,7 +746,7 @@
       if (syncing){ syncPending = true; return; }
       syncPending = false;
       syncNow(true);
-    }, 1500);
+    }, 350);
   }
 
   function pollSync(){
@@ -752,7 +759,7 @@
   function collectItems(){
     const out = [];
     const put = (kind, arr) => arr.forEach(x => out.push({
-      kind, id:x.id, updatedAt:x.updatedAt || 0, deleted:false, payload:x
+      kind, id:x.id, updatedAt:x.updatedAt || 0, deleted:false, payload:kind === "todo" ? SangeCore.todo(x,"mobile") : kind === "event" ? SangeCore.event(x,"mobile") : x
     }));
     put("todo", store.todos);
     put("event", store.events);
@@ -764,39 +771,8 @@
     return out;
   }
 
-  function normalizeTodoForView(x){
-    const out = { ...x };
-    const catMap = {
-      urgent:{tag:"紧急", tone:"pink"},
-      action:{tag:"要办", tone:"amber"},
-      academic:{tag:"学业", tone:"blue"},
-      info:{tag:"信息", tone:"gray"}
-    };
-    const mapped = catMap[out.cat] || {tag:"", tone:"gray"};
-    if (!out.tag) out.tag = mapped.tag;
-    if (!out.tone) out.tone = mapped.tone;
-    if (!out.meta){
-      const when = [out.date ? out.date.slice(5) : "", out.time || ""].filter(Boolean).join(" ");
-      out.meta = [when, out.note || ""].filter(Boolean).join(" · ");
-    }
-    out.done = !!out.done;
-    return out;
-  }
-
-  function normalizeEventForView(x){
-    const out = { ...x };
-    const catMap = {
-      urgent:{kind:"紧急", tone:"pink"},
-      action:{kind:"要办", tone:"amber"},
-      academic:{kind:"学业", tone:"blue"},
-      info:{kind:"日程", tone:"gray"}
-    };
-    const mapped = catMap[out.cat] || {kind:"日程", tone:"pink"};
-    if (!out.place) out.place = out.where || "";
-    if (!out.kind) out.kind = mapped.kind;
-    if (!out.tone) out.tone = mapped.tone;
-    return out;
-  }
+  function normalizeTodoForView(x){ return SangeCore.todo(x); }
+  function normalizeEventForView(x){ return SangeCore.event(x); }
 
   function applySnapshot(items){
     const buckets = { todo:[], event:[], course:[], thought:[] };
@@ -808,7 +784,7 @@
     store.events = buckets.event.map(normalizeEventForView);
     store.courses = buckets.course;
     store.thoughts = buckets.thought.map(x => ({...x, text:x.text || ""}));
-    store.deleted = [];
+    store.deleted = items.filter(x => x.deleted).map(({kind,id,updatedAt}) => ({kind,id,updatedAt}));
     currentThought = null;
   }
 
@@ -822,20 +798,21 @@
   }
 
   async function syncNow(silent){
-    const endpointInput = $("#syncEndpoint");
-    if (endpointInput){
-      const u = endpointInput.value.trim();
-      if (u && store.sync.url !== u){
-        store.sync.url = u;
-        applyingSync = true; save(); applyingSync = false;
+    if (!silent){
+      const endpointInput=document.querySelector("#syncEndpoint");
+      const tokenInput=document.querySelector("#syncToken");
+      const url=(endpointInput?.value || store.sync.url || globalThis.SANGE_SERVICE_URL || "").trim();
+      const token=(tokenInput?.value || store.sync.token || "").trim();
+      const changed=url!==store.sync.url || token!==store.sync.token;
+      if (changed && store.sync.token && store.sync.lastSync){
+        if (!confirm("更换同步配置会切换数据空间。当前清单将先保存在本机备份，随后读取新令牌的数据。继续？")) { setSyncStatus("已取消切换令牌"); return; }
+        localStorage.setItem("sange.account.backup."+Date.now(),JSON.stringify(store));
+        ["todos","events","courses","thoughts","deleted"].forEach(k=>store[k]=[]);
+        store.sync.lastSync=0;
       }
-    }
-    const tokenInput = $("#syncToken");
-    if (tokenInput){
-      const t = tokenInput.value.trim();
-      if (t && store.sync.token !== t){
-        store.sync.token = t;
-        applyingSync = true; save(); applyingSync = false;
+      if (changed){
+        store.sync.url=url; store.sync.token=token;
+        applyingSync=true; save(); applyingSync=false;
       }
     }
     if (!syncConfigured()){
@@ -857,35 +834,56 @@
     syncing = true;
     setSyncBusy(true);
     setSyncStatus("同步中…");
-    const rev = storeRev;
+    let rev = storeRev;
+    const identity = store.sync.url + "|" + store.sync.token;
+    syncLedger.use(identity);
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), 12000);
     try {
+      let outgoing = syncLedger.pending(collectItems());
+      if (!store.sync.lastSync){
+        localStorage.setItem("sange.presync.backup", JSON.stringify(store));
+        const first = await fetch(store.sync.url, {method:"POST",headers:{"content-type":"application/json",authorization:"Bearer "+store.sync.token},body:JSON.stringify({items:[]}),signal:ctrl.signal});
+        if (!first.ok) throw new Error("首次连接失败："+first.status);
+        const cloud = SangeCore.snapshot(await first.json());
+        outgoing = SangeCore.firstMerge(collectItems(), cloud);
+        applyingSync=true; applySnapshot(outgoing); save(); applyingSync=false;
+        rev=storeRev;
+      }
       const url = store.sync.url;
       const res = await fetch(url, {
         method:"POST",
         headers:{ "content-type":"application/json", "authorization":"Bearer " + store.sync.token },
-        body: JSON.stringify({ items: collectItems() }),
+        body: JSON.stringify({ items: outgoing }),
         signal: ctrl.signal
       });
       const data = await res.json().catch(() => ({}));
       if (res.status === 401) throw new Error("令牌不对，检查是否复制完整");
       if (!res.ok) throw new Error(data.error || ("HTTP " + res.status));
+      if (identity !== store.sync.url + "|" + store.sync.token) throw new Error("同步配置已更换，旧请求已忽略");
+      syncLedger.acknowledge(SangeCore.snapshot(data));
       let retryAfter = false;
       if (rev === storeRev){
         applyingSync = true;
-        applySnapshot(data.items || []);
+        const remote = SangeCore.snapshot(data);
+        const merged = SangeCore.merge(store.sync.lastSync ? collectItems() : [], remote);
+        const changed = !SangeCore.equal(collectItems(), merged);
+        if (changed) applySnapshot(merged);
         store.sync.lastSync = now();
-        syncBackoffUntil = 0;
+        syncBackoffUntil = 0; syncFailures = 0;
         save();
         applyingSync = false;
-        renderAll();
+        if (changed) {
+          const positions = [$("#todoList").scrollTop,$("#eventList").scrollTop];
+          renderAll();
+          $("#todoList").scrollTop = positions[0]; $("#eventList").scrollTop = positions[1];
+        }
       } else {
         syncPending = true;
         retryAfter = true;
         setSyncStatus("同步期间有新改动，稍后自动补一轮");
       }
-      $("#syncToken").value = "";
+      if (!silent) $("#syncToken").value = "";
       $("#syncTokenBox").classList.add("hidden");
       $("#syncTokenToggle").textContent = "更换令牌";
       $("#syncTokenToggle").setAttribute("aria-expanded", "false");
@@ -894,7 +892,7 @@
       if (!silent) showToast("同步完成");
     } catch(e){
       applyingSync = false;
-      syncBackoffUntil = Date.now() + 30_000;
+      syncBackoffUntil = Date.now() + Math.min(30_000, 3_000 * 2 ** Math.min(syncFailures++, 4));
       const raw = String((e && e.message) || e);
       const msg = (e && e.name === "AbortError")
         ? "连接超时，手机网络到不了同步服务"
@@ -912,7 +910,7 @@
       clearTimeout(timer);
       syncing = false;
       setSyncBusy(false);
-      if (syncPending){
+      if (syncPending && Date.now() >= syncBackoffUntil){
         syncPending = false;
         syncTimer = setTimeout(() => syncNow(true), 1200);
       }
@@ -950,7 +948,7 @@
       !e.done && eventEndMoment(e) >= now && (e.endDate || e.date) >= TODAY);
     const courses = coursesOn(TODAY).map(c => ({...c, past:coursePast(c)}));
     return base.concat(courses)
-      .sort((a,b) => Number(!!a.past) - Number(!!b.past) || (a.date+a.time).localeCompare(b.date+b.time));
+      .sort(SangeCore.compareAgenda);
   }
 
   function coursePast(c){
@@ -988,8 +986,8 @@
   }
 
   function renderTodos(){
-    const active = store.todos.filter(t => !t.done);
-    const completed = store.todos.filter(t => t.done);
+    const active = store.todos.filter(t => !t.done).sort(SangeCore.compareTodos);
+    const completed = store.todos.filter(t => t.done).sort(SangeCore.compareTodos);
     $("#todoCount").textContent = active.length;
     updatePageSub();
     const row = (t, compact) => `
@@ -1143,20 +1141,13 @@
   }
   function currentWeekNo(){ return weekNoForDate(new Date()); }
 
-  function renderTimetable(){
-    const monday = addDays(mondayOf(NOW), weekOffset * 7);
+  function renderTimetable(offset=weekOffset, preview=null){
+    const monday = addDays(mondayOf(NOW), offset * 7);
     const sunday = addDays(monday, 6);
-    const weekNo = currentWeekNo() + weekOffset;
+    const weekNo = currentWeekNo() + offset;
     const todayDay = (NOW.getDay() + 6) % 7 + 1;
-    const showToday = weekOffset === 0;
+    const showToday = offset === 0;
     const week = DAY_NAMES.map((label, i) => ({ label, date: addDays(monday, i).getDate(), day: i + 1 }));
-
-    $("#weekPill").textContent = `第 ${weekNo} 周`;
-    $("#weekRange").textContent = `${monday.getMonth()+1}/${monday.getDate()}–${sunday.getMonth()+1}/${sunday.getDate()}`;
-    $("#ttHead").innerHTML = `<div></div>` + week.map(d => `
-      <div class="tt-day ${showToday && d.day === todayDay ? "today" : ""}">
-        <span>${d.label}</span><b>${d.date}</b>
-      </div>`).join("");
 
     let html = showToday ? `<div style="grid-column:${todayDay+1};grid-row:1 / span ${PERIODS.length};background:rgba(59,110,245,.035);pointer-events:none;"></div>` : "";
     PERIODS.forEach(p => {
@@ -1169,6 +1160,14 @@
         <b>${esc(c.name)}</b>${showPlace ? `<span>@${esc(c.place)}</span>` : ""}
       </div>`;
     });
+    if (preview){ preview.innerHTML=html; return; }
+    $("#weekPill").textContent = `第 ${weekNo} 周`;
+    $("#weekRange").textContent = `${monday.getMonth()+1}/${monday.getDate()}–${sunday.getMonth()+1}/${sunday.getDate()}`;
+    $("#ttHead").innerHTML = `<div></div>` + week.map(d => `
+      <div class="tt-day ${showToday && d.day === todayDay ? "today" : ""}">
+        <span>${d.label}</span><b>${d.date}</b>
+      </div>`).join("");
+
     $("#ttGrid").innerHTML = html;
     $("#ttGrid").style.transition = "none";
     $("#ttGrid").style.transform = "translate3d(0,0,0)";
@@ -1400,7 +1399,7 @@
   function renderAllTodos(){
     const active = store.todos.filter(t => !t.done).length;
     $("#allTodoCount").textContent = `${active}/${store.todos.length}`;
-    const ordered = [...store.todos].sort((a,b) => Number(a.done) - Number(b.done));
+    const ordered = [...store.todos].sort(SangeCore.compareTodos);
     $("#allTodoList").innerHTML = ordered.length ? ordered.map(t => `
       <div class="item ${t.done ? "done" : ""}">
         <div class="row1">
@@ -1579,7 +1578,7 @@
     if (editingItem.kind !== "thought"){
       if (date) item.date = date; else delete item.date;
       if (time) item.time = time; else delete item.time;
-      if (place) item.place = place; else delete item.place;
+      item.place = place; item.where = place;
     }
     if (editingItem.kind === "todo"){
       item.tag = $("#editCategory").value;
@@ -1656,8 +1655,15 @@
     const track = $("#pageTrack");
     const target = pageEls()[n - 1];
     if (!stage || !track || !target) return;
+    if (n === 1){
+      const top=$("#todoList").getBoundingClientRect().top + window.scrollY;
+      const height=Math.max(220,Math.min(440,window.innerHeight-top-$("#capture").offsetHeight-24));
+      [$("#todoList"),$("#eventList")].forEach(list=>{
+        if (list.style.height !== height+"px") list.style.height=height+"px";
+      });
+    }
     const width = stage.clientWidth;
-    track.style.transition = animate ? "transform .26s cubic-bezier(.2,.8,.2,1)" : "none";
+    track.style.transition = animate && !matchMedia("(prefers-reduced-motion: reduce)").matches ? "transform .26s cubic-bezier(.2,.8,.2,1)" : "none";
     track.style.transform = `translate3d(${-(n - 1) * width}px,0,0)`;
     stage.style.height = target.scrollHeight + "px";
   }
@@ -1737,7 +1743,8 @@
 
   let ttSwipe = null, ttSwiped = false;
   $("#ttGrid").addEventListener("pointerdown", e => {
-    ttSwipe = { x:e.clientX, y:e.clientY, id:e.pointerId, dragging:false, dx:0 };
+    if (e.isPrimary === false) return;
+    ttSwipe = { x:e.clientX, y:e.clientY, id:e.pointerId, dragging:false, dx:0, width:$("#ttViewport").clientWidth };
     ttSwiped = false;
   }, { passive:true });
   $("#ttGrid").addEventListener("pointermove", e => {
@@ -1753,12 +1760,31 @@
     }
     if (!ttSwipe.dragging) return;
     e.preventDefault();
-    $("#ttGrid").style.transform = `translate3d(${dx}px,0,0)`;
+    const direction=dx<0?1:-1;
+    if (!ttSwipe.preview){
+      ttSwipe.preview=$("#ttGrid").cloneNode(false);
+      ttSwipe.preview.removeAttribute("id");
+      ttSwipe.preview.classList.add("tt-ghost");
+      ttSwipe.preview.setAttribute("aria-hidden","true");
+      $("#ttViewport").appendChild(ttSwipe.preview);
+    }
+    if (ttSwipe.direction!==direction){
+      ttSwipe.direction=direction;
+      renderTimetable(weekOffset+direction,ttSwipe.preview);
+    }
+    if (!ttSwipe.frame) ttSwipe.frame=requestAnimationFrame(()=>{
+      if (!ttSwipe) return;
+      $("#ttGrid").style.transform=`translate3d(${ttSwipe.dx}px,0,0)`;
+      ttSwipe.preview.style.transform=`translate3d(${ttSwipe.dx+ttSwipe.direction*ttSwipe.width}px,0,0)`;
+      ttSwipe.frame=0;
+    });
   }, { passive:false });
   $("#ttGrid").addEventListener("pointerup", e => {
     if (!ttSwipe || ttSwipe.id !== e.pointerId) return;
     const dx = ttSwipe.dx;
     const dragging = ttSwipe.dragging;
+    cancelAnimationFrame(ttSwipe.frame);
+    ttSwipe.preview?.remove();
     ttSwipe = null;
     if (!dragging) return;
     const viewport = $("#ttViewport");
@@ -1768,13 +1794,15 @@
     if (shouldSwitch){
       const ghost = $("#ttGrid").cloneNode(true);
       ghost.classList.add("tt-ghost");
+      ghost.removeAttribute("id");
+      ghost.setAttribute("aria-hidden","true");
       ghost.style.transform = `translate3d(${dx}px,0,0)`;
       viewport.appendChild(ghost);
       weekOffset += dx < 0 ? 1 : -1;
       renderTimetable();
       const grid = $("#ttGrid");
       grid.style.transition = "none";
-      grid.style.transform = `translate3d(${dx < 0 ? width : -width}px,0,0)`;
+      grid.style.transform = `translate3d(${dx+(dx < 0 ? width : -width)}px,0,0)`;
       requestAnimationFrame(() => {
         ghost.style.transition = "transform .24s cubic-bezier(.2,.8,.2,1)";
         grid.style.transition = "transform .24s cubic-bezier(.2,.8,.2,1)";
@@ -1790,6 +1818,7 @@
     setTimeout(() => { ttSwiped = false; }, 350);
   }, { passive:true });
   $("#ttGrid").addEventListener("pointercancel", () => {
+    if (ttSwipe) { cancelAnimationFrame(ttSwipe.frame); ttSwipe.preview?.remove(); }
     if (ttSwipe && ttSwipe.dragging){
       $("#ttGrid").style.transition = "transform .2s ease-out";
       $("#ttGrid").style.transform = "translate3d(0,0,0)";
@@ -1820,7 +1849,7 @@
     $("#syncTokenToggle").textContent = open ? "收起" : syncConfigured() ? "更换令牌" : "填写令牌";
     $("#syncTokenToggle").setAttribute("aria-expanded", String(open));
     if (open){
-      $("#syncToken").value = "";
+      if (!silent) $("#syncToken").value = "";
       setTimeout(() => $("#syncToken").focus(), 40);
     }
   };
@@ -1912,8 +1941,11 @@
 
   let pageGesture = null, suppressPageClick = false;
   document.addEventListener("pointerdown", e => {
-    if (e.target.closest("input,textarea,select,.sheet,.scrim,#capture,.tt-viewport")) return;
-    pageGesture = { x:e.clientX, y:e.clientY, id:e.pointerId, dx:0, dragging:false };
+    if (e.target.closest("input,textarea,select,.sheet,.scrim,#capture,.tt-viewport") || document.querySelector(".sheet.on")) return;
+    if (e.isPrimary === false || (e.pointerType === "mouse" && e.button !== 0)) return;
+    pageGesture = { x:e.clientX, y:e.clientY, id:e.pointerId, dx:0, dragging:false,
+      width:$("#pageStage").clientWidth, start:performance.now(),
+      heights:pageEls().map(el=>el.scrollHeight) };
   }, { passive:true });
   document.addEventListener("pointermove", e => {
     if (!pageGesture || pageGesture.id !== e.pointerId) return;
@@ -1928,38 +1960,39 @@
     }
     if (!pageGesture.dragging) return;
     e.preventDefault();
-    const stage = $("#pageStage");
     const track = $("#pageTrack");
-    const width = stage.clientWidth;
-    const direction = dx < 0 ? 1 : -1;
-    const targetIndex = page + direction;
+    const width = pageGesture.width;
+    const targetIndex = page + (dx < 0 ? 1 : -1);
     const allowed = targetIndex >= 1 && targetIndex <= 3;
-    const visual = allowed ? dx : dx * 0.22;
-    track.style.transform = `translate3d(${-(page - 1) * width + visual}px,0,0)`;
-    const currentHeight = pageEls()[page - 1].scrollHeight;
-    if (allowed){
-      const targetHeight = pageEls()[targetIndex - 1].scrollHeight;
-      const progress = Math.min(1, Math.abs(dx) / width);
-      stage.style.height = currentHeight + (targetHeight - currentHeight) * progress + "px";
-    } else {
-      stage.style.height = currentHeight + "px";
+    if (!pageGesture.prepared){
+      $("#pageStage").style.height = Math.max(pageGesture.heights[page-1], allowed ? pageGesture.heights[targetIndex-1] : 0) + "px";
+      pageGesture.prepared = true;
     }
+    pageGesture.visual = -(page-1)*width + (allowed ? dx : dx*.22);
+    if (!pageGesture.frame) pageGesture.frame = requestAnimationFrame(() => {
+      if (!pageGesture) return;
+      track.style.transform = `translate3d(${pageGesture.visual}px,0,0)`;
+      pageGesture.frame = 0;
+    });
   }, { passive:false });
   document.addEventListener("pointerup", e => {
     if (!pageGesture || pageGesture.id !== e.pointerId) return;
     const dx = e.clientX - pageGesture.x;
     const wasDragging = pageGesture.dragging;
+    const speed = Math.abs(dx) / Math.max(1, performance.now()-pageGesture.start);
+    cancelAnimationFrame(pageGesture.frame);
     pageGesture = null;
     if (!wasDragging) return;
     suppressPageClick = true;
     setTimeout(() => { suppressPageClick = false; }, 350);
     const width = $("#pageStage").clientWidth;
     const target = page + (dx < 0 ? 1 : -1);
-    const shouldSwitch = target >= 1 && target <= 3 && Math.abs(dx) > Math.max(48, width * 0.18);
+    const shouldSwitch = target >= 1 && target <= 3 && (Math.abs(dx) > Math.max(48, width * 0.18) || (Math.abs(dx)>24 && speed>.45));
     if (shouldSwitch) setPage(target, { animate:true });
     else positionPageTrack(page, true);
   }, { passive:true });
   document.addEventListener("pointercancel", () => {
+    if (pageGesture) cancelAnimationFrame(pageGesture.frame);
     if (pageGesture && pageGesture.dragging) positionPageTrack(page, true);
     pageGesture = null;
   }, { passive:true });
@@ -1986,7 +2019,7 @@
   saveWidget();
   setInterval(() => { renderEvents(); updatePageSub(); }, 60000);
   if (syncConfigured()) setTimeout(() => syncNow(true), 800);
-  setInterval(pollSync, 10_000);
+  setInterval(pollSync, 2_000);
   window.addEventListener("focus", pollSync);
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") pollSync(); });
 })();
