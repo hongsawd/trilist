@@ -376,7 +376,7 @@
 
 <header>
   <div class="bar">
-    <h1>三格</h1><span class="app-version">v1.6</span>
+    <h1>三格</h1><span class="app-version">v1.7</span>
     <div class="tabs">
       <button class="tab on" data-view="board">看板</button>
       <button class="tab" data-view="cal">日历</button>
@@ -553,11 +553,13 @@
     <label>令牌<input id="syncToken" type="password" placeholder="粘贴令牌" autocomplete="off"></label>
     <div class="sync-status" id="syncStatus">还没有同步过</div>
     <div class="sync-actions">
+      <button id="syncGetToken" class="primary" type="button">获取令牌</button>
+      <button id="syncCopyToken" type="button" hidden>复制令牌</button>
       <button id="syncRun" class="primary" type="button">立即同步</button>
       <button id="syncFirst" type="button">以电脑替换云端清单（课程保留）</button>
       <button id="syncClose" type="button">关闭</button>
     </div>
-    <p class="sync-tip">前台每 2 秒检查一次云端，切回窗口会立即同步；首次连接会备份并合并两端数据，不删除云端清单。</p>
+    <p class="sync-tip">首次使用可直接获取令牌；另一台设备填写同一令牌即可同步。</p>
   </div>
 </div>
 
@@ -570,6 +572,7 @@
 </dialog>
 <script src="shared/service-config.js"></script>
 <script src="shared/sange-core.js"></script>
+<script src="shared/sange-token.js"></script>
 <script>
 window.onerror = function(m,s,l,c){ document.title = "ERR @"+l+":"+c+" "+m; };
 (function(){
@@ -724,6 +727,7 @@ window.onerror = function(m,s,l,c){ document.title = "ERR @"+l+":"+c+" "+m; };
   let syncBackoffUntil = 0;
   const syncLedger = SangeCore.ledger();
   let syncFailures = 0;
+  let registeringToken = false;
   try { store = normalizeStore(JSON.parse(localStorage.getItem(KEY))); }
   catch(e){ store = freshStore(); }
   const migrated = migrateStore(store);
@@ -933,11 +937,23 @@ window.onerror = function(m,s,l,c){ document.title = "ERR @"+l+":"+c+" "+m; };
   el("undoToast").onmouseleave = () => scheduleToastHide(3000);
 
   let inlineEdit = null;
+  const editFields = {text:"inline-title",date:"inline-date",time:"inline-time",endDate:"inline-end-date",endTime:"inline-end-time",where:"inline-where",cat:"inline-cat",note:"inline-note"};
+  function visibleInlineEditor(){
+    return inlineEdit && document.querySelector('main:not([hidden]) .inline-editor[data-id="'+CSS.escape(inlineEdit.id)+'"][data-kind="'+inlineEdit.kind+'"]');
+  }
+  function captureInlineDraft(cardEl){
+    if (!inlineEdit || cardEl.dataset.id !== inlineEdit.id || cardEl.dataset.kind !== inlineEdit.kind) return;
+    Object.entries(editFields).forEach(([key,cls]) => {
+      const input = cardEl.querySelector('.'+cls);
+      if (input) inlineEdit.draft[key] = input.value;
+    });
+  }
   function beginInlineEdit(kind, item){
-    inlineEdit = {kind, id:item.id};
+    const draft = {text:item.text||"",date:item.date||"",time:item.time||"",endDate:item.endDate||"",endTime:item.endTime||"",where:item.where??item.place??"",cat:item.cat||(kind==="dated"?"info":"action"),note:item.note||""};
+    inlineEdit = {kind, id:item.id, draft:{...draft}, original:{...draft}};
     render();
     setTimeout(() => {
-      const input = document.querySelector('.inline-editor[data-id="'+CSS.escape(item.id)+'"] .inline-title');
+      const input = visibleInlineEditor()?.querySelector('.inline-title');
       if (input) { input.focus(); input.select(); }
     }, 0);
   }
@@ -947,7 +963,12 @@ window.onerror = function(m,s,l,c){ document.title = "ERR @"+l+":"+c+" "+m; };
   }
   function saveInlineEdit(kind, id, cardEl){
     const item = (store[kind] || []).find(x => x.id === id);
-    if (!item) { cancelInlineEdit(); return; }
+    if (!inlineEdit || inlineEdit.kind !== kind || inlineEdit.id !== id) return;
+    if (!item) {
+      cardEl.querySelector(".inline-error").textContent = "这条记录已在其他设备完成或删除。取消编辑可查看最新清单。";
+      return;
+    }
+    captureInlineDraft(cardEl);
     const text = cardEl.querySelector(".inline-title").value.trim();
     const error = cardEl.querySelector(".inline-error");
     if (!text) {
@@ -955,40 +976,39 @@ window.onerror = function(m,s,l,c){ document.title = "ERR @"+l+":"+c+" "+m; };
       cardEl.querySelector(".inline-title").focus();
       return;
     }
+    const invalidDate = Array.from(cardEl.querySelectorAll('input[type="date"],input[type="time"]')).find(input => input.validity.badInput || !input.validity.valid);
+    if (invalidDate){
+      error.textContent = "日期或时间尚未填写完整，请检查后再保存。";
+      invalidDate.focus();
+      return;
+    }
     if (kind === "dated" && !cardEl.querySelector(".inline-date").value) {
       error.textContent = "日程必须保留日期。";
       cardEl.querySelector(".inline-date").focus();
       return;
     }
-    item.text = text;
-    if (kind !== "ideas") {
-      const date = cardEl.querySelector(".inline-date").value;
-      const time = cardEl.querySelector(".inline-time").value;
-      const where = cardEl.querySelector(".inline-where").value.trim();
-      if (date) item.date = date; else delete item.date;
-      if (time) item.time = time; else delete item.time;
-      if (kind === "dated") {
-        const endDate = cardEl.querySelector(".inline-end-date").value;
-        const endTime = cardEl.querySelector(".inline-end-time").value;
-        if (endDate) item.endDate = endDate < item.date ? item.date : endDate; else delete item.endDate;
-        if (endTime) item.endTime = endTime; else delete item.endTime;
-      }
-      if (where) item.where = where; else delete item.where;
-      if (where) recordPlace(where);
-      item.cat = cardEl.querySelector(".inline-cat").value;
-      const memo = cardEl.querySelector(".inline-note").value.trim();
-      if (memo) item.note = memo; else delete item.note;
-    }
+    const {draft, original} = inlineEdit;
+    const patch = {};
+    Object.keys(editFields).forEach(key => {
+      if (!cardEl.querySelector('.'+editFields[key]) || draft[key] === original[key]) return;
+      patch[key] = ["text","where","note"].includes(key) ? draft[key].trim() : draft[key];
+    });
+    if (Object.hasOwn(patch,"where")) patch.place = patch.where;
+    Object.assign(item,patch);
+    if (kind === "dated" && item.endDate && item.endDate < item.date) item.endDate = item.date;
+    if (patch.where) recordPlace(patch.where);
     inlineEdit = null;
-    item.updatedAt = SangeCore.tick();
-    save(); render();
+    if (Object.keys(patch).length){ item.updatedAt = SangeCore.tick(); save(); }
+    render();
     note.textContent = "已保存修改。";
     note.className = "note";
   }
   function inlineEditor(kind, item){
+    if (inlineEdit && inlineEdit.kind === kind && inlineEdit.id === item.id) item = {...item,...inlineEdit.draft};
     const c = document.createElement("div");
     c.className = "card inline-editor";
     c.dataset.id = item.id;
+    c.dataset.kind = kind;
     const endFields = kind === "dated" ?
         '<label>结束日期<span class="inline-control"><input class="inline-end-date" type="date" value="'+esc(item.endDate||"")+'">'+
           '<button class="inline-clear" type="button" data-clear="end-date" aria-label="清空结束日期">×</button></span></label>'+
@@ -1021,6 +1041,7 @@ window.onerror = function(m,s,l,c){ document.title = "ERR @"+l+":"+c+" "+m; };
       button.onclick = () => {
         const input = c.querySelector(".inline-"+button.dataset.clear);
         input.value = "";
+        captureInlineDraft(c);
         input.focus();
       };
     });
@@ -1030,6 +1051,8 @@ window.onerror = function(m,s,l,c){ document.title = "ERR @"+l+":"+c+" "+m; };
         if (e.key === "Escape") { e.preventDefault(); cancelInlineEdit(); }
       });
     });
+    c.addEventListener("input", () => captureInlineDraft(c));
+    c.addEventListener("change", () => captureInlineDraft(c));
     return c;
   }
 
@@ -1624,6 +1647,7 @@ window.onerror = function(m,s,l,c){ document.title = "ERR @"+l+":"+c+" "+m; };
     const badge = el("modeBadge");
     badge.textContent = mode;
     badge.classList.toggle("insert", mode === "INSERT");
+    badge.title = mode === "INSERT" ? "输入模式：正在编辑文本或日期" : "浏览模式：可使用快捷键";
   }
   document.addEventListener("focusin", e => {
     if (e.target.matches("input,textarea,select,[contenteditable=true]")) setMode("INSERT");
@@ -1670,6 +1694,8 @@ window.onerror = function(m,s,l,c){ document.title = "ERR @"+l+":"+c+" "+m; };
   // ---------- 视图切换 ----------
   let view = "board";
   function setView(v){
+    const editing = visibleInlineEditor();
+    if (editing) captureInlineDraft(editing);
     if (selectedCard) selectedCard.classList.remove("keyboard-selected");
     selectedCard = null;
     view = v;
@@ -1682,7 +1708,7 @@ window.onerror = function(m,s,l,c){ document.title = "ERR @"+l+":"+c+" "+m; };
     el("viewPosition").textContent = (index+1)+"/3";
     el("viewLabel").textContent = labels[v] || "看板";
     el("stats").style.display = v === "board" ? "" : "none";
-    if (v === "cal") { renderCal(); renderDay(); }
+    if (v === "board" || v === "cal") render({force:true});
     if (v === "course") renderCourse();
   }
   document.querySelectorAll(".tab").forEach(b => b.onclick = () => setView(b.dataset.view));
@@ -2030,13 +2056,45 @@ window.onerror = function(m,s,l,c){ document.title = "ERR @"+l+":"+c+" "+m; };
     if (endpoint) endpoint.closest("label").hidden = !!globalThis.SANGE_SERVICE_URL;
     if (endpoint && !endpoint.value) endpoint.value = store.sync.url || "";
     if (input && !input.value) input.value = store.sync.token || "";
+    updateTokenControls();
     setSyncStatus(store.sync.lastSync
       ? "上次同步：" + new Date(store.sync.lastSync).toLocaleString("zh-CN")
       : "还没有同步过", store.sync.lastSync ? "ok" : "");
     p.hidden = false;
   }
 
-  function render(){
+  function updateTokenControls(){
+    const token = el("syncToken").value.trim() || store.sync.token || "";
+    el("syncGetToken").hidden = !!token;
+    el("syncGetToken").disabled = registeringToken || syncing;
+    el("syncGetToken").textContent = registeringToken ? "获取中…" : "获取令牌";
+    el("syncCopyToken").hidden = !token;
+    el("syncRun").disabled = registeringToken || syncing;
+  }
+  async function getSyncToken(){
+    if (registeringToken || syncing) return;
+    if (el("syncToken").value.trim() || store.sync.token) { updateTokenControls(); return; }
+    registeringToken = true; updateTokenControls();
+    setSyncStatus("正在创建同步空间…");
+    try{
+      const endpoint = el("syncEndpoint").value.trim() || syncEndpoint() || globalThis.SANGE_SERVICE_URL;
+      const token = await SangeToken.register(endpoint);
+      el("syncToken").value = token;
+      await runSync("normal");
+    }catch(error){setSyncStatus(error.message,"err");}
+    finally{registeringToken=false;updateTokenControls();}
+  }
+
+  function render(options={}){
+    // Background data can merge while the native date control and its draft stay mounted.
+    const editing = visibleInlineEditor();
+    if (editing && !options.force){
+      renderStats();
+      if (!(store[inlineEdit.kind] || []).some(item => item.id === inlineEdit.id)) {
+        editing.querySelector(".inline-error").textContent = "这条记录已在其他设备完成或删除。取消编辑可查看最新清单。";
+      }
+      return;
+    }
     renderTodo(); renderDated(); renderIdeas(); renderStats();
     if (view==="cal") { renderCal(); renderDay(); }
     if (!el("peekPanel").hidden) renderPeek();
@@ -2367,6 +2425,12 @@ window.onerror = function(m,s,l,c){ document.title = "ERR @"+l+":"+c+" "+m; };
   };
 
   el("syncBtn").onclick = openSyncPanel;
+  el("syncGetToken").onclick = getSyncToken;
+  el("syncCopyToken").onclick = async () => {
+    try{await SangeToken.copy(el("syncToken").value.trim() || store.sync.token);setSyncStatus("令牌已复制，在另一台设备填写即可同步。","ok");}
+    catch(error){setSyncStatus(error.message,"err");}
+  };
+  el("syncToken").addEventListener("input", updateTokenControls);
   el("settingsBtn").onclick = () => {
     const minutes=store.settings.reminderMinutes;
     el("reminderMode").value=minutes===null?"off":minutes===30?"30":"custom";

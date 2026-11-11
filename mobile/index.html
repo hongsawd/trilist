@@ -250,6 +250,8 @@
   .sync-badge.err{color:#a6453a;background:#fbeceb;}
   .sync-badge.err::before{background:#c65b50;}
   .sync-token-toggle{margin-left:auto;}
+  .sync-token-actions{display:flex;gap:8px;margin-top:10px;}
+  .sync-token-actions .mini{min-height:44px;flex:1;}
   .sync-auto{font-size:9.5px;color:var(--green);background:#e9f4ed;border-radius:10px;padding:2px 7px;white-space:nowrap;}
   .sync-auto.off{color:var(--ink3);background:#f1f2f4;}
   .sync-token-box{margin-top:10px;padding:10px;border-radius:8px;background:#f8f9fb;border:1px solid var(--line);}
@@ -387,9 +389,10 @@
         <p class="sync-token-help">地址和令牌只保存在这台设备上。</p>
       </div>
       <button class="mini sync-token-toggle" id="syncTokenToggle" type="button">填写令牌</button>
+      <div class="sync-token-actions"><button class="mini" id="syncGetToken" type="button">获取令牌</button><button class="mini hidden" id="syncCopyToken" type="button">复制令牌</button></div>
       <div class="sync-status" id="syncStatus">还没有同步过</div>
       <button class="submit sync-submit" id="syncNowBtn" type="button"><span class="spinner hidden" id="syncSpin"></span><span id="syncBtnLabel">立即同步</span></button>
-      <p class="sync-hint">改动后约 0.35 秒发起上传，前台每 2 秒检查云端；只上传变化的记录；切回页面会立即同步。</p>
+      <p class="sync-hint">首次使用点「获取令牌」；另一台设备填写同一令牌即可。连接后，修改会自动同步。</p>
     </section>
   </div>
   </div>
@@ -502,11 +505,12 @@
 
 <script src="../shared/service-config.js"></script>
 <script src="../shared/sange-core.js"></script>
+<script src="../shared/sange-token.js"></script>
 <script>
 (function(){
   const $ = s => document.querySelector(s);
   const STORE_KEY = "sange.mobile.v1";
-  const APP_VERSION = "1.15";
+  const APP_VERSION = "1.17";
   const state = { type:"thought" };
   let page = 1;
   let currentThought = null;
@@ -695,6 +699,7 @@
   let syncBackoffUntil = 0;
   const syncLedger = SangeCore.ledger();
   let syncFailures = 0;
+  let registeringToken = false;
 
   function setSyncStatus(msg, cls){
     const el = $("#syncStatus");
@@ -719,6 +724,7 @@
     btn.disabled = on;
     $("#syncSpin").classList.toggle("hidden", !on);
     $("#syncBtnLabel").textContent = on ? "同步中…" : "立即同步";
+    updateTokenControls();
   }
 
   function renderSyncPage(){
@@ -730,6 +736,7 @@
     $("#syncTokenToggle").textContent = hasToken ? "更换令牌" : "填写令牌";
     $("#syncTokenToggle").setAttribute("aria-expanded", String(!hasToken));
     $("#syncAuto").classList.toggle("off", !hasToken);
+    updateTokenControls();
     const has = store.sync && store.sync.lastSync;
     setSyncStatus(
       has ? "上次同步：" + new Date(store.sync.lastSync).toLocaleString("zh-CN") : "还没有同步过",
@@ -737,6 +744,25 @@
     );
   }
 
+  function updateTokenControls(){
+    const token = $("#syncToken").value.trim() || store.sync.token || "";
+    $("#syncGetToken").classList.toggle("hidden", !!token);
+    $("#syncGetToken").disabled = registeringToken || syncing;
+    $("#syncGetToken").textContent = registeringToken ? "获取中…" : "获取令牌";
+    $("#syncCopyToken").classList.toggle("hidden", !token);
+    $("#syncNowBtn").disabled = registeringToken || syncing;
+  }
+  async function getSyncToken(){
+    if (registeringToken || syncing) return;
+    if ($("#syncToken").value.trim() || store.sync.token) {updateTokenControls();return;}
+    registeringToken=true;updateTokenControls();setSyncStatus("正在创建同步空间…");
+    try{
+      const endpoint=$("#syncEndpoint").value.trim() || store.sync.url || globalThis.SANGE_SERVICE_URL;
+      $("#syncToken").value=await SangeToken.register(endpoint);
+      await syncNow(false);
+    }catch(error){setSyncStatus(error.message,"err");}
+    finally{registeringToken=false;updateTokenControls();}
+  }
   function scheduleSync(){
     if (applyingSync || !syncConfigured()) return;
     syncPending = true;
@@ -1842,6 +1868,12 @@
   $("#editSave").onclick = saveItemEditor;
   $("#editDelete").onclick = () => { if (editingItem) deleteItem(editingItem.kind, editingItem.id); };
   $("#syncNowBtn").onclick = () => syncNow(false);
+  $("#syncGetToken").onclick = getSyncToken;
+  $("#syncCopyToken").onclick = async () => {
+    try{await SangeToken.copy($("#syncToken").value.trim() || store.sync.token);setSyncStatus("令牌已复制，在另一台设备填写即可同步。","ok");}
+    catch(error){setSyncStatus(error.message,"err");}
+  };
+  $("#syncToken").addEventListener("input", updateTokenControls);
   $("#syncTokenToggle").onclick = () => {
     const box = $("#syncTokenBox");
     const open = box.classList.contains("hidden");
@@ -1849,7 +1881,7 @@
     $("#syncTokenToggle").textContent = open ? "收起" : syncConfigured() ? "更换令牌" : "填写令牌";
     $("#syncTokenToggle").setAttribute("aria-expanded", String(open));
     if (open){
-      if (!silent) $("#syncToken").value = "";
+      $("#syncToken").value = "";
       setTimeout(() => $("#syncToken").focus(), 40);
     }
   };

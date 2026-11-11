@@ -6,18 +6,21 @@
 
 | 平台 | 安装包 | 使用方法 |
 |---|---|---|
-| Windows | [下载 Windows 版 · ZIP](https://github.com/hongsawd/trilist/releases/download/v1.16.1/sange-windows-v1.6.zip) | 完整解压，打开「三格」文件夹，双击 `启动三格.vbs` |
-| Android | [下载 Android 版 · APK](https://github.com/hongsawd/trilist/releases/download/v1.16.1/sange-android-v1.15.apk) | 在手机上打开 APK 安装；更新时直接覆盖安装 |
+| Windows | [下载 Windows 版 · ZIP](https://github.com/hongsawd/trilist/releases/download/v1.17/sange-windows-v1.7.zip) | 完整解压，打开「三格」文件夹，双击 `启动三格.vbs` |
+| Android | [下载 Android 版 · APK](https://github.com/hongsawd/trilist/releases/download/v1.17/sange-android-v1.17.apk) | 在手机上打开 APK 安装；更新时直接覆盖安装 |
 
 [查看所有版本与附件](https://github.com/hongsawd/trilist/releases)
 
 Windows 包已包含运行环境，解压后即可启动。首次打开是空白清单。
 
-安装包放在发布页的 **Assets（附件）** 中，文件名分别是 `sange-windows-v1.6.zip` 和 `sange-android-v1.15.apk`。开发用源码另列为 `sange-source-v1.16.1.zip`。
+安装包放在发布页的 **Assets（附件）** 中，文件名分别是 `sange-windows-v1.7.zip` 和 `sange-android-v1.17.apk`。开发用源码另列为 `sange-source-v1.17.zip`。
 
 ## 同步
 
-向作者领取个人令牌，在应用的「同步」中粘贴，点击「立即同步」。自己的手机和电脑填写同一枚令牌即可。
+1. 在第一台设备打开「同步」，点击「获取令牌」，即可开始同步。
+2. 点击「复制令牌」，在自己的另一台设备粘贴，点击「立即同步」。
+
+令牌用于连接自己的清单，请妥善保存。已有令牌继续使用，不需要重新获取。
 
 同步可选，不开启也能正常使用。
 

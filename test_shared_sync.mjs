@@ -28,6 +28,22 @@ assert.equal((await request('test-A',[])).items[0].updatedAt,11);
 sql.prepare('UPDATE sync_users SET enabled=0 WHERE owner=?').run('bob');
 assert.equal((await request('test-B',[])).status,401);
 console.log('ok: user isolation, legacy migration, revoked/invalid tokens, deletion ties, stale replay, undo and atomic validation');
+async function signup(ip='192.0.2.1',overrides={}){
+ const r=await worker.fetch(new Request('https://example.test/api/register',{method:'POST',headers:{'content-type':'application/json','CF-Connecting-IP':ip},body:'{}'}),{...env,...overrides});
+ return {status:r.status,...await r.json()};
+}
+const firstUser=await signup(),secondUser=await signup();
+assert.equal(firstUser.status,201);assert.equal(secondUser.status,201);
+assert.match(firstUser.token,/^sg_[0-9a-f]{64}$/);assert.notEqual(firstUser.token,secondUser.token);
+assert.deepEqual((await request(firstUser.token,[])).items,[]);
+await request(firstUser.token,[item('new user A')]);await request(secondUser.token,[item('new user B')]);
+assert.equal((await request(firstUser.token,[])).items[0].payload.text,'new user A');
+assert.equal((await request(secondUser.token,[])).items[0].payload.text,'new user B');
+assert.ok(sql.prepare('SELECT owner FROM sync_users WHERE token_sha256=?').get(await digest(firstUser.token)));
+assert.equal((await signup('192.0.2.2',{SIGNUP_LIMIT_PER_HOUR:1})).status,201);
+assert.equal((await signup('192.0.2.2',{SIGNUP_LIMIT_PER_HOUR:1})).status,429);
+assert.equal((await worker.fetch(new Request('https://example.test/api/register'),env)).status,405);
+console.log('ok: self-service signup, usable private spaces, hashed credentials and registration rate limits');
 const todos=[{id:'z',cat:'academic'},{id:'a',cat:'action',date:'2027-01-03'},{id:'u',tag:'紧急'},{id:'b',cat:'academic',date:'2027-01-02'},{id:'d',cat:'urgent',done:true}];
 assert.deepEqual(todos.sort(core.compareTodos).map(x=>x.id),['u','b','a','z','d']);
 assert.equal(core.todo({place:'',where:'old'}).where,'');

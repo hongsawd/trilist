@@ -1,10 +1,10 @@
 # 托管同步服务
 
-管理员部署服务，使用者只填个人令牌。每个令牌映射一个独立 `owner`；同一个人多台设备使用同一令牌。数据库只存令牌的 SHA-256 摘要。系统没有开放注册，令牌由管理员发放。
+维护者部署服务，使用者在软件中点击「获取令牌」即可建立同步空间，无需自行部署或联系维护者。同一个人的多台设备填写同一令牌。每个令牌映射独立的 `owner`，数据库只存令牌的 SHA-256 摘要。
 
 ## 部署与迁移
 
-1. 给 Cloudflare Worker 或 Pages 绑定 D1，执行 `schema.sql`。已有数据库只新增 `sync_users`，不删除原表或旧数据。
+1. 给 Cloudflare Worker 或 Pages 绑定 D1，执行 `schema.sql`。已有数据库只新增 `sync_users` 和 `signup_limits` 等缺失表，不删除原表或旧数据。
 2. Worker 使用 `src/index.js`；Pages 使用同一文件作为 `_worker.js`。必须先迁移数据库，再切换服务版本。
 3. 保留现有 `SYNC_TOKEN` 或 `meta.token_sha256`，旧个人令牌继续访问原有空间。不要把旧个人令牌发给其他人。
 4. 托管手机构建：
@@ -15,7 +15,17 @@
 
    输出只包含页面、共享规则、公开服务地址和服务处理器，不包含令牌、个人数据或设备缓存。Android 构建时复制 `index.html` 和 `shared/` 到 `www/`，不要将 `_worker.js` 放进 APK。
 
-## 发放与撤销令牌
+## 自助获取令牌
+
+客户端向 `/api/register`（或 `/register`）发送空 JSON 的 POST 请求，服务端生成随机令牌、登记独立空间并返回令牌。客户端保存后直接开始同步。重复使用已有令牌不会创建新空间。
+
+默认每个来源 IP 每小时最多申请 30 次，可用 `SIGNUP_LIMIT_PER_HOUR` 调整（1–300）。数据库仅保留按小时加盐的 IP 摘要及计数，并清理超过一天的计数记录。超过限制返回 429。
+
+令牌相当于清单的访问凭证，应私下保管，不应贴到公开页面。服务端不保存原文；遗失后无法直接查询原令牌。
+
+## 管理员备用工具与撤销
+
+正常使用无需运行以下工具。维护者需要为特定空间另发令牌时可用：
 
 ```bash
 python issue-token.py --private-dir /path/to/private-tokens
@@ -23,7 +33,7 @@ python issue-token.py --private-dir /path/to/private-tokens
 
 工具在仓库外生成凭证 JSON 和注册 SQL，不在终端打印令牌。将生成的 SQL 导入 D1，再私下把 JSON 中的令牌交给对应使用者。令牌文件不要上传或放入安装包。需要撤销时，将对应 `sync_users` 行的 `enabled` 设为 0。
 
-维护者的完整顺序是：
+手工发放顺序是：
 
 1. 运行上面的生成工具，在私有目录得到一对同名的 `.json` 和 `.sql` 文件。
 2. 在已经登录 Cloudflare 的环境，把 SQL 登记到实际服务绑定的数据库：`npx wrangler d1 execute YOUR_DATABASE --remote --file /private/path/user-id.sql`。

@@ -29,7 +29,7 @@ npm start
 
 Android 使用独立的 Capacitor 工程。将手机页面复制为工程中的 `www/index.html`，同时将 `shared/` 复制为 `www/shared/`，再运行 `npx cap copy android` 和 Gradle `assembleDebug`。当前仓库未包含完整 Android 壳工程。
 
-托管版通过 `sync-worker/prepare-hosted.py` 写入公开服务地址。令牌由用户在软件中填写。
+托管版通过 `sync-worker/prepare-hosted.py` 写入公开服务地址。用户可在软件中获取令牌，其他设备填写同一令牌。
 
 ## 数据与分发
 
@@ -51,6 +51,8 @@ python -X utf8 test_sync_safety.py
 python -X utf8 test_mobile_sync_retry.py
 python -X utf8 test_cross_device.py
 python -X utf8 test_reminder_settings.py
+python -X utf8 test_edit_sync_draft.py
+python -X utf8 test_token_setup.py
 node test_shared_sync.mjs
 node test_reminder_rules.cjs
 ```

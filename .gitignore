@@ -18,6 +18,7 @@ sync-worker/wrangler.toml
 
 # Local collaboration records and ad-hoc checks
 /HANDOFF*.md
+/DEBUG-WIRELESS*.md
 /AGENTS.md
 /guide-audit.mjs
 /.internal/

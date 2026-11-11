@@ -22,3 +22,9 @@ CREATE TABLE IF NOT EXISTS sync_users (
   enabled INTEGER NOT NULL DEFAULT 1,
   created_at INTEGER NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS signup_limits (
+  fingerprint TEXT PRIMARY KEY,
+  created_at INTEGER NOT NULL,
+  attempts INTEGER NOT NULL DEFAULT 1
+);

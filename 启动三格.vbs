@@ -9,7 +9,7 @@ If Not fso.FileExists(exe) Then exe = homeDir & "\.codex\whale-widget\desktop-ru
 launchArgs = ""
 If WScript.Arguments.Named.Exists("autostart") Then launchArgs = " --autostart"
 If Not fso.FileExists(exe) Then
-  MsgBox "首次使用请先在 desktop 目录安装依赖，再启动三格。", 16, "三格"
+  MsgBox "Please extract the complete Windows package, then launch it again.", 16, "Sange"
   WScript.Quit 1
 End If
 shell.Run """" & exe & """ """ & appDir & """" & launchArgs, 0, False
